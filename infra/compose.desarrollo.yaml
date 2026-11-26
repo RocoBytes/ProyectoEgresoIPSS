@@ -1,0 +1,51 @@
+# Solo para desarrollo local: la base va sin red interna y con claves de juguete.
+# La topología de producción vive en compose.yaml (punto de control 5).
+name: ipss-desarrollo
+
+services:
+  # Base de desarrollo con datos persistentes. El rol migrador tiene CREATEDB porque Prisma
+  # necesita una base sombra para detectar deriva entre el esquema y las migraciones.
+  bd:
+    image: postgres:16.16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: postgres_dev
+      TZ: UTC
+    ports:
+      # Solo en loopback: nadie más en la red del equipo debe llegar a esta base.
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - bd_datos:/var/lib/postgresql/data
+      - ./bd/desarrollo/00_roles.sql:/docker-entrypoint-initdb.d/00_roles.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ipss"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Base desechable para las pruebas: cada recreación parte de cero, porque la prueba T1 espera
+  # los correlativos 001 y 002. Usa el script de roles de PRODUCCIÓN para probar las reglas
+  # contra la misma configuración de roles que se despliega.
+  bd-pruebas:
+    profiles: [pruebas]
+    image: postgres:16.16-alpine
+    environment:
+      POSTGRES_PASSWORD: postgres_dev
+      CLAVE_BD_MIGRADOR: migrador_dev
+      CLAVE_BD_API: api_dev
+      TZ: UTC
+    ports:
+      - "127.0.0.1:55433:5432"
+    # En memoria: al recrear el contenedor no queda ningún dato de la corrida anterior.
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ./bd/00_roles.sh:/docker-entrypoint-initdb.d/00_roles.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ipss"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  bd_datos: {}

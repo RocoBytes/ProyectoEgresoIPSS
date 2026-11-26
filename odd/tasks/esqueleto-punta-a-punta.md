@@ -42,10 +42,10 @@ Es el primer hito acordado (hasta el 29-11-2026). Además prueba tres cosas que 
 
 ## Tareas
 
-- [ ] **T1 Monorepo.** npm workspaces (`apps/api`, `apps/web`, `packages/shared`), versiones del kit, TypeScript estricto, ESLint y scripts en la raíz. ADR 0001.
+- [x] **T1 Monorepo.** npm workspaces (`apps/api`, `apps/web`, `packages/shared`), versiones del kit, TypeScript estricto, ESLint y scripts en la raíz. ADR 0001. Commit `ee3b1dd`.
   - Ruta: delegada a un escritor. Disparador: más de dos archivos no triviales.
   - Verificación: `npm install`, `npm run lint`, `npm run typecheck`, `npm run build`, `npm audit` y comparación de versiones con el kit.
-- [ ] **T2 Base de datos.** Esquema completo, migración inicial con la sección 2 literal más la 2.6, roles, `compose.desarrollo.yaml`, 26 pruebas adaptadas y `test:bd`. ADR 0002 a 0005.
+- [x] **T2 Base de datos.** Esquema completo, migración inicial con la sección 2 literal más la 2.6, roles, `compose.desarrollo.yaml`, 26 pruebas adaptadas y `test:bd`. ADR 0002 a 0005.
   - Ruta: delegada.
   - Verificación:
     - `npm run test:bd` con 26 de 26;
@@ -86,7 +86,35 @@ Es el primer hito acordado (hasta el 29-11-2026). Además prueba tres cosas que 
 ## Progreso y evidencia
 
 - 26-11-2026: commit base `8c79d17` en `main` y rama `esqueleto` creada.
+- 26-11-2026, T1 cerrada (`ee3b1dd`):
+  - `npm ci` limpio con Node 26.13.1 y npm 11.20.0.
+  - `lint`, `typecheck` y `build` en 0.
+  - `npm audit` y `npm audit --omit=dev` sin vulnerabilidades.
+  - `effect` 3.22.1 y `uuid` 11.1.1 aplicados por `overrides`.
+  - La prueba negativa de lint dispara las cuatro reglas.
+  - argon2id funciona: hash y verificación en `true`.
+  - Desvío: no hay `tsconfig.node.json`; `vite.config.ts` va en el `tsconfig.json` de la web, porque así lo exige el servicio de proyectos de ESLint.
+  - Versiones: `@types/node` resolvió a 24.19.4 (el kit tenía 24.19.2) y `@types/react` a 19.3.3 (el kit tenía 19.3.0), dentro de sus rangos `^`.
+  - npm 11.20 avisa que `argon2`, `prisma`, `@prisma/engines` y `fsevents` tienen scripts de instalación sin revisar en `allowScripts`.
+  - Revisión nativa: riesgo medio y `review_due` por `slice_budget_reached`. Quedó bloqueada porque pide declarar los archivos sin seguimiento (`PROMPT_INICIAL.md` y el `.env.ejemplo` del kit) con un JSON cuyo esquema no pude determinar. Estado: no disponible, pendiente de decisión del usuario.
+
+- 26-11-2026: defensas aprobadas y aplicadas en `277df7b`.
+  - Se agregaron `.npmrc` (`min-release-age=7`, `save-exact`, `strict-allow-scripts`), `allowScripts`, Dependabot y el ADR 0008.
+  - El lockfile se regeneró con la regla de 7 días.
+  - `npm audit signatures` verificó las firmas de los 640 paquetes.
+- 26-11-2026, T2 cerrada:
+  - Esquema aprobado sin cambios. `prisma generate` funciona con `effect` 3.22.1.
+  - `migrate deploy` se aplicó como `ipss_migrador`.
+  - Deriva: "No difference detected".
+  - El `diff` de la sección 2 contra el kit solo muestra el bloque 2.6 agregado.
+  - Las 16 tablas son de `ipss_migrador`. `ipss_api` no tiene DELETE ni TRUNCATE y las funciones no tienen EXECUTE para PUBLIC.
+  - `npm run test:bd`: 26 correctas, 0 fallas, dos veces seguidas sobre una base recreada. Lint y typecheck en 0.
+  - Desvíos:
+    - import de `performance` en `reglas-bd.mjs`;
+    - `prisma.config.ts` agregado al `tsconfig` de la API;
+    - `include` explícito en `tsconfig.build.json`;
+    - la migración incluye `CREATE SCHEMA IF NOT EXISTS "public"`, tal como lo genera `migrate diff`.
 
 ## Próximo paso
 
-T1.
+T3: API mínima. Antes del filtro de errores, comprobar cómo entrega Prisma el 23514 de un CHECK y de un trigger.
