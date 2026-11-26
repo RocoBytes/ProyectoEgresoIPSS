@@ -5,6 +5,7 @@ import { PaginaNoEncontrada } from './comun/PaginaNoEncontrada';
 import { RutaProtegida } from './comun/RutaProtegida';
 import { PaginaMallas } from './mallas/PaginaMallas';
 import { PaginaPanel } from './panel/PaginaPanel';
+import { PaginaDetalle } from './registros/PaginaDetalle';
 import { PaginaRegistros } from './registros/PaginaRegistros';
 import { PaginaSalud } from './salud/PaginaSalud';
 import { PaginaNuevaSesion } from './sesiones/PaginaNuevaSesion';
@@ -22,6 +23,7 @@ export const rutasApp: RouteObject[] = [
       { index: true, element: <PaginaPanel />, errorElement },
       { path: 'sesiones/nueva', element: <PaginaNuevaSesion />, errorElement },
       { path: 'registros', element: <PaginaRegistros />, errorElement },
+      { path: 'registros/:id', element: <PaginaDetalle />, errorElement },
       { path: 'mallas', element: <PaginaMallas />, errorElement },
       { path: '*', element: <PaginaNoEncontrada />, errorElement },
     ],

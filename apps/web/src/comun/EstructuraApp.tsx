@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { NavLink } from 'react-router';
+import { NavLink, useNavigate } from 'react-router';
 import type { UsuarioActual } from '@ipss/shared';
 import { renovar, useCerrarSesion } from '../acceso/sesion';
 import { Icono, type NombreIcono } from './Icono';
@@ -125,6 +125,37 @@ function MenuUsuario({ usuario, alCerrarSesion }: { usuario: UsuarioActual; alCe
   );
 }
 
+/** Buscador de la barra superior: lleva al listado con solo el texto buscado (los demás filtros se reinician). */
+function Buscador() {
+  const navegar = useNavigate();
+  const [texto, setTexto] = useState('');
+  return (
+    <form
+      role="search"
+      className="mr-auto w-full max-w-[460px]"
+      onSubmit={(evento) => {
+        evento.preventDefault();
+        const q = texto.trim();
+        void navegar(q === '' ? '/registros' : `/registros?${new URLSearchParams({ q }).toString()}`);
+      }}
+    >
+      <label htmlFor="buscar-global" className="sr-only">
+        Buscar registros
+      </label>
+      <input
+        id="buscar-global"
+        type="search"
+        value={texto}
+        onChange={(evento) => {
+          setTexto(evento.target.value);
+        }}
+        placeholder="Buscar por N° de registro, asignatura o texto"
+        className="min-h-10 w-full rounded-full border border-borde-fuerte bg-superficie px-4 text-[13px] text-texto"
+      />
+    </form>
+  );
+}
+
 /** Estructura con sesión: barra lateral, barra superior con la cuenta y el contenido de la ruta. */
 export function EstructuraApp({ usuario, children }: { usuario: UsuarioActual; children: ReactNode }) {
   const [menuAbierto, setMenuAbierto] = useState(false);
@@ -189,6 +220,7 @@ export function EstructuraApp({ usuario, children }: { usuario: UsuarioActual; c
 
       <div className="flex min-w-0 flex-col">
         <header className="sticky top-0 z-20 flex min-h-16 items-center justify-end gap-4 border-b border-borde bg-fondo/90 px-8 py-2.5 backdrop-blur-[10px] max-[900px]:min-h-14 max-[900px]:px-4 max-[900px]:py-2">
+          <Buscador />
           <MenuUsuario
             usuario={usuario}
             alCerrarSesion={() => {
