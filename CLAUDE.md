@@ -30,6 +30,7 @@ Requieren Node 26.13.1 con npm 11.20 (`.nvmrc`) y Docker en ejecución. Todos se
   - arranca la API en http://127.0.0.1:3000/api y la web en http://127.0.0.1:5173, ambas con recarga; la web llega a `/api` por el proxy de Vite.
 - `npm run semilla`: siembra en la base de desarrollo los datos de ejemplo del prototipo.
   - Carga 4 sectores, 10 carreras con sus asignaturas y módulos, 6 canales y 3 usuarios: `carla.fuentes@`, `matias.sepulveda@` y `paula.henriquez@instituto.example`, con la clave `Demo-2026`.
+  - Carga además 10 mallas, 11 sesiones y 19 registros, con archivos de relleno en `apps/api/.datos/evidencias`. Los folios salen R-2026-NNN porque el trigger usa el año actual.
   - Es idempotente y se niega a correr con `NODE_ENV=production`.
 - `npm run lint`, `npm run typecheck`, `npm run build`: cubren todos los workspaces y generan antes el cliente de Prisma.
 - `npm test`: recrea la base de pruebas, corre las 26 reglas y después Jest (API) y Vitest (web).

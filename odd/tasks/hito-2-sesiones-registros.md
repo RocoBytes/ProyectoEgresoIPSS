@@ -52,13 +52,13 @@ Fuera de alcance:
 
 ## Tareas
 
-- [ ] **H1 Base.** Módulo `fecha-texto`, migración de reglas del objeto (CHECK y trigger), `DIRECTORIO_EVIDENCIAS` y API de catálogos. Ruta: delegada (escritor de la API).
-- [ ] **H2 Evidencias y creación de sesiones.** Almacenamiento en disco tras una interfaz, validación por contenido, SHA-256 por stream, descarga verificada y `POST /api/sesiones` transaccional. Ruta: delegada (escritor de la API).
-- [ ] **H3 Registros.** Listado con filtros, búsqueda y paginación; años; detalle con historial y permisos; edición; semilla con datos de ejemplo. Ruta: delegada (escritor de la API).
-- [ ] **H4 Web base.** Componentes de estilo shadcn, IBM Plex Mono y buscador de la barra superior. Ruta: delegada (escritor de la web).
-- [ ] **H5 Web: Nueva sesión.** Ruta: delegada (escritor de la web).
-- [ ] **H6 Web: Registros, Detalle y Editar.** Ruta: delegada (escritor de la web).
-- [ ] **H7 Cierre.** Revisión independiente de seguridad y sus correcciones, prueba en Compose, ADR 0011 a 0014 y `CLAUDE.md`. Ruta: inline o delegada.
+- [x] **H1 Base.** Módulo `fecha-texto`, migración de reglas del objeto (CHECK y trigger), `DIRECTORIO_EVIDENCIAS` y API de catálogos. Ruta: delegada (escritor de la API).
+- [x] **H2 Evidencias y creación de sesiones.** Almacenamiento en disco tras una interfaz, validación por contenido, SHA-256 por stream, descarga verificada y `POST /api/sesiones` transaccional. Ruta: delegada (escritor de la API).
+- [x] **H3 Registros.** Listado con filtros, búsqueda y paginación; años; detalle con historial y permisos; edición; semilla con datos de ejemplo. Ruta: delegada (escritor de la API).
+- [x] **H4 Web base.** Componentes de estilo shadcn, IBM Plex Mono y buscador de la barra superior. Ruta: delegada (escritor de la web).
+- [x] **H5 Web: Nueva sesión.** Ruta: delegada (escritor de la web).
+- [x] **H6 Web: Registros, Detalle y Editar.** Ruta: delegada (escritor de la web).
+- [x] **H7 Cierre.** Revisión independiente de seguridad y sus correcciones, prueba en Compose, ADR 0011 a 0014 y `CLAUDE.md`. Ruta: inline o delegada.
 
 ## Criterios de aceptación
 
@@ -84,6 +84,24 @@ Fuera de alcance:
 
 - 26-11-2026: plan aprobado, rama `hito-2` creada.
 
+- H1 a H3 (`15eb9b5`): catálogos, evidencias, `POST /api/sesiones`, listado, años, detalle, edición, semilla del prototipo y ADR 0011 a 0013.
+- H4 a H6 (`b1df956`): componentes de estilo shadcn sin Radix, Nueva sesión, Registros y Detalle con edición, y ADR 0014.
+- Revisión independiente de seguridad: sin hallazgos graves y 5 de severidad media o baja confirmados. Se corrigieron en `b6857ee`:
+  - paginación acotada;
+  - límites de tamaño;
+  - nombres de archivo saneados;
+  - descarga verificada sobre el mismo descriptor de archivo;
+  - limpieza de archivos temporales al arrancar;
+  - `chmod 0640`.
+  También se corrigió la altura de la barra lateral.
+- Evidencia:
+  - `npm test`: 26 reglas, 237 pruebas de Jest y 92 de Vitest. Lint y tipos en 0.
+  - Compose de producción: cinco servicios bien y 4 migraciones aplicadas.
+  - API en vivo: crear sesión, listado, vencidos, detalle y descarga con `cmp` idéntico.
+- Pendientes que decide el usuario:
+  - el trigger del correlativo trunca desde el número 1.000 del año (`lpad`), una regla SQL protegida;
+  - Caddy limita cada petición a 25 MB en total, aunque cada archivo admite 20 MB.
+
 ## Próximo paso
 
-H1 a H3 (API).
+Hito 3: cierre con evidencia, anulación y panel.
