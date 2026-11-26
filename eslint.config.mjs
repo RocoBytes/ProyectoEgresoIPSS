@@ -7,6 +7,9 @@ import reactHooks from 'eslint-plugin-react-hooks';
 // a mano para no sumar el paquete `globals` como dependencia.
 const globalesNode = {
   process: 'readonly',
+  setTimeout: 'readonly',
+  setInterval: 'readonly',
+  clearInterval: 'readonly',
   console: 'readonly',
   __dirname: 'readonly',
   __filename: 'readonly',

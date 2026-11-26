@@ -1,11 +1,12 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import type { EstadoRegistro } from '@ipss/shared';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { RouterProvider } from 'react-router';
+import { crearClienteConsultas } from './clienteConsultas';
+import { enrutador } from './rutas';
 import './index.css';
 
-// Marcador temporal: las rutas y pantallas reales llegan en puntos de control
-// posteriores. El import de tipos comprueba que el paquete compartido resuelve.
-const estadoInicial: EstadoRegistro = 'ABIERTO';
+const clienteConsultas = crearClienteConsultas();
 
 const raiz = document.getElementById('root');
 if (raiz === null) {
@@ -14,6 +15,8 @@ if (raiz === null) {
 
 createRoot(raiz).render(
   <StrictMode>
-    <p>Plataforma de validación del perfil de egreso (estado de ejemplo: {estadoInicial})</p>
+    <QueryClientProvider client={clienteConsultas}>
+      <RouterProvider router={enrutador} />
+    </QueryClientProvider>
   </StrictMode>,
 );

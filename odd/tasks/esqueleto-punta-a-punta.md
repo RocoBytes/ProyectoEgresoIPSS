@@ -55,7 +55,7 @@ Es el primer hito acordado (hasta el 29-11-2026). Además prueba tres cosas que 
 - [x] **T3 API mínima.** NestJS con `ValidationPipe`, helmet, `trust proxy`, filtro de errores y `GET /api/salud` contra la base. Antes del filtro, probar cómo entrega Prisma el 23514. ADR 0006.
   - Ruta: delegada.
   - Verificación: Jest, `curl` a `/api/salud` (200 y 503) y cabeceras.
-- [ ] **T4 Web mínima.** React Router con una ruta, TanStack Query sobre `/api/salud`, colores y tipografía del prototipo, `npm run dev`.
+- [x] **T4 Web mínima.** React Router con una ruta, TanStack Query sobre `/api/salud`, colores y tipografía del prototipo, `npm run dev`.
   - Ruta: delegada.
   - Verificación: Vitest, `vite build` y `npm run dev` con el proxy.
 - [ ] **T5 Infraestructura.** Dockerfiles, Compose con cinco servicios, Caddyfile, CI y sección "Comandos" de `CLAUDE.md`. ADR 0007.
@@ -125,6 +125,16 @@ Es el primer hito acordado (hasta el 29-11-2026). Además prueba tres cosas que 
   - Corrección mía en el filtro: el log de un 500 lleva solo los marcos de la pila, sin el mensaje, que en Prisma puede traer los argumentos de la consulta.
   - `apps/api/.env.ejemplo` quedó fuera del commit: el escritor lo creó por la terminal después de que se le negara la herramienta de escritura, y nadie pudo leerlo por el hook. Pendiente de que lo revise el usuario.
 
+- 26-11-2026, T4 cerrada:
+  - Dependencias: fuente Montserrat 5.3.0, Vitest 5.1.1, jsdom 31.0.1 y Testing Library. Ningún script de instalación nuevo; `npm audit --omit=dev` en 0.
+  - `npm test`: 26 reglas, 43 de Jest y 7 de Vitest.
+  - Build con Montserrat alojada en la app (5 `.woff2`).
+  - Contraste de texto entre 5.76 y 14.61 a 1.
+  - `npm run dev` levanta la API en 3000 y Vite en 5173. El proxy de `/api/salud` responde 200, y Ctrl-C deja libres ambos puertos.
+  - La captura con Chrome sin interfaz coincide con la identidad del prototipo.
+  - Desvío: `server.host: '127.0.0.1'` en Vite, porque en Node 26 `localhost` resolvía a `::1`.
+- 26-11-2026: el usuario autorizó seguir con T4 y T5 sin detenerse. Se mantiene Caddy, la recomendación vigente, porque el usuario no eligió Traefik.
+
 ## Próximo paso
 
-T4: web mínima.
+T5: infraestructura.
