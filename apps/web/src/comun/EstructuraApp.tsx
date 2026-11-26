@@ -176,7 +176,7 @@ export function EstructuraApp({ usuario, children }: { usuario: UsuarioActual; c
       >
         Saltar al contenido
       </a>
-      <aside className="sticky top-0 flex h-screen max-h-dvh flex-col gap-7 self-start bg-navy py-[22px] pr-3.5 pb-[18px] pl-3.5 text-white max-[900px]:static max-[900px]:h-auto max-[900px]:max-h-none max-[900px]:gap-2.5 max-[900px]:px-4 max-[900px]:py-3">
+      <aside className="sticky top-0 flex h-screen flex-col gap-7 self-start bg-navy py-[22px] pr-3.5 pb-[18px] pl-3.5 text-white max-[900px]:static max-[900px]:h-auto max-[900px]:gap-2.5 max-[900px]:px-4 max-[900px]:py-3">
         <div className="flex items-center justify-between px-1.5 max-[900px]:px-0">
           <Marca tamano={34} />
           <button

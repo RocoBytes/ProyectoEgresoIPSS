@@ -33,6 +33,6 @@ export class ListarRegistrosDto {
   @IsOptional() @vacioEsAusente @IsString({ message: 'La búsqueda no es válida.' }) @MaxLength(100, { message: 'La búsqueda es demasiado larga.' })
   q?: string;
 
-  @IsOptional() @vacioEsAusente @Type(() => Number) @IsInt({ message: 'La página no es válida.' }) @Min(1, { message: 'La página no es válida.' })
+  @IsOptional() @vacioEsAusente @Type(() => Number) @IsInt({ message: 'La página no es válida.' }) @Min(1, { message: 'La página no es válida.' }) @Max(10000, { message: 'La página no es válida.' })
   pagina?: number;
 }

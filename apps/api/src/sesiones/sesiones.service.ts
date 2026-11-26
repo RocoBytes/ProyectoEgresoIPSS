@@ -63,7 +63,7 @@ export class SesionesService {
       const datos = await this.validarDatos(datosJson, archivos);
       await this.verificarCanal(datos.canalId);
       const carreras = await this.verificarAlcance(usuario, datos);
-      const objetos = await this.verificarObjetos(datos, carreras);
+      const objetos = await this.verificarObjetos(datos);
 
       const acta = await this.validarArchivo(archivos.acta?.[0], 'acta');
       const fotos: Array<{ archivo: Express.Multer.File; validado: ArchivoValidado }> = [];
@@ -154,36 +154,39 @@ export class SesionesService {
     const carreras = new Map(filas.map((c) => [c.id, c.nombre]));
     const desconocidas = datos.registros.flatMap((r, i) => (carreras.has(r.carreraId) ? [] : [{ campo: `registros.${i}.carreraId`, mensaje: 'Selecciona la carrera.' }]));
     if (desconocidas.length > 0) throw this.error400(desconocidas);
+    // Una sola consulta de alcance, sin importar cuántos registros traiga la sesión.
+    const permitidas = new Set((await this.alcance.carrerasModificables(usuario)).map((c) => c.id));
     for (const [id, nombre] of carreras) {
-      if (!(await this.alcance.puedeModificarCarrera(usuario, id))) throw new ForbiddenException(`No puedes crear registros para ${nombre}: está fuera de tu alcance.`);
+      if (!permitidas.has(id)) throw new ForbiddenException(`No puedes crear registros para ${nombre}: está fuera de tu alcance.`);
     }
     return carreras;
   }
 
   /** La base también lo exige (trigger); aquí se valida antes para responder con el campo exacto y no con un 409. */
-  private async verificarObjetos(datos: DatosSesionDto, carreras: Map<string, string>): Promise<Map<string, { nombre?: string; anio?: number }>> {
+  private async verificarObjetos(datos: DatosSesionDto): Promise<Map<string, { nombre?: string; anio?: number }>> {
     const idsAsig = datos.registros.flatMap((r) => (r.asignaturaId !== undefined && usaAsignatura(r.nivelImpacto) ? [r.asignaturaId] : []));
     const idsMalla = datos.registros.flatMap((r) => (r.versionMallaId !== undefined && r.nivelImpacto === 'MALLA' ? [r.versionMallaId] : []));
     const [asignaturas, mallas] = await Promise.all([
       this.prisma.asignatura.findMany({ where: { id: { in: idsAsig } }, select: { id: true, carreraId: true, tipo: true, nombre: true } }),
       this.prisma.versionMalla.findMany({ where: { id: { in: idsMalla } }, select: { id: true, carreraId: true, anio: true } }),
     ]);
+    const asignaturaPorId = new Map(asignaturas.map((x) => [x.id, x]));
+    const mallaPorId = new Map(mallas.map((x) => [x.id, x]));
     const objetos = new Map<string, { nombre?: string; anio?: number }>();
     const errores: ErrorValidacion[] = [];
     datos.registros.forEach((r, i) => {
       if (usaAsignatura(r.nivelImpacto)) {
-        const a = asignaturas.find((x) => x.id === r.asignaturaId);
+        const a = asignaturaPorId.get(r.asignaturaId ?? '');
         const tipoOk = a?.tipo === (r.nivelImpacto === 'MODULO' ? 'MODULO' : 'ASIGNATURA');
         if (a === undefined || a.carreraId !== r.carreraId || !tipoOk) {
           errores.push({ campo: `registros.${i}.asignaturaId`, mensaje: r.nivelImpacto === 'MODULO' ? 'Selecciona el módulo.' : 'Selecciona la asignatura.' });
         } else objetos.set(`${i}`, { nombre: a.nombre });
       } else if (r.nivelImpacto === 'MALLA') {
-        const m = mallas.find((x) => x.id === r.versionMallaId);
+        const m = mallaPorId.get(r.versionMallaId ?? '');
         if (m === undefined || m.carreraId !== r.carreraId) errores.push({ campo: `registros.${i}.versionMallaId`, mensaje: 'Selecciona la versión de malla.' });
         else objetos.set(`${i}`, { anio: m.anio });
       }
     });
-    void carreras;
     if (errores.length > 0) throw this.error400(errores);
     return objetos;
   }

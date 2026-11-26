@@ -36,6 +36,7 @@ describe('registros: listado, años, detalle y edición', () => {
     ids['vencido'] = await reg(sesionId, e.carreraA, 'ASIGNATURA', e.asignaturaA, null, null, DESC, sumarDias(hoy, -1));
     ids['hoy'] = await reg(sesionId, e.carreraA, 'RECURSO', e.asignaturaA, null, `Guía ${unico}`, DESC, hoy);
     ids['malla'] = await reg(sesion2, e.carreraA, 'MALLA', null, e.mallaA, null, `Detalle 100% literal_`, sumarDias(hoy, 10));
+    ids['literal'] = await reg(sesion2, e.carreraA2, 'PERFIL_INGRESO', null, null, null, 'Ruta C:\\datos\\x con guion_bajo literal', sumarDias(hoy, 10));
     ids['otra'] = await reg(sesion2, e.carreraB, 'PERFIL_EGRESO', null, null, null, DESC, sumarDias(hoy, 10));
     ids['cerrado'] = await reg(sesion2, e.carreraA, 'MODULO', e.moduloA, null, null, DESC, sumarDias(hoy, -20));
     await conMigrador(async (c) => {
@@ -51,7 +52,7 @@ describe('registros: listado, años, detalle y edición', () => {
     expect((await listar(filtroCarrera())).total).toBe(4);
     expect(idsDe(await listar(`sectorId=${e.sectorB}`))).toEqual([ids['otra']]);
     expect(idsDe(await listar(`${filtroCarrera()}&asignaturaId=${e.asignaturaA}`)).sort()).toEqual([ids['vencido'], ids['hoy']].sort());
-    expect((await listar(`canalId=${e.canal}`)).total).toBe(5);
+    expect((await listar(`canalId=${e.canal}`)).total).toBe(6);
     expect(idsDe(await listar(`${filtroCarrera()}&nivel=MALLA`))).toEqual([ids['malla']]);
     expect((await listar(`canalId=${e.canal}&anio=2025`)).total).toBe(2);
   });
@@ -82,18 +83,28 @@ describe('registros: listado, años, detalle y edición', () => {
     expect(await q('100% literal_')).toEqual([ids['malla']]);
     expect(await q('%')).toEqual([ids['malla']]); // un % suelto no es comodín
     expect(await q('_')).toEqual([ids['malla']]);
+    const enA2 = (await listar(`carreraId=${e.carreraA2}&q=${encodeURIComponent('guion_bajo')}`)).filas.map((f) => f.id);
+    expect(enA2).toEqual([ids['literal']]);
+    expect(idsDe(await listar(`carreraId=${e.carreraA2}&q=${encodeURIComponent('guion\\bajo')}`))).toEqual([]);
+    expect(idsDe(await listar(`carreraId=${e.carreraA2}&q=${encodeURIComponent('C:\\datos\\x')}`))).toEqual([ids['literal']]);
+    expect(idsDe(await listar(`carreraId=${e.carreraA2}&q=${encodeURIComponent('guion%bajo')}`))).toEqual([]);
   });
 
   it('pagina de 10 en 10, de la sesión más reciente a la más antigua', async () => {
     await conMigrador((c) => c.query("INSERT INTO registro (sesion_id, carrera_id, nivel_impacto, descripcion, fecha_comprometida, actualizado_por) SELECT $1, $2, 'PERFIL_INGRESO', 'Registro masivo de prueba', '2027-01-01', $3 FROM generate_series(1, 12)", [sesion2, e.carreraA2, e.sectorial.id]));
     const p1 = await listar(`carreraId=${e.carreraA2}`);
-    expect(p1).toMatchObject({ total: 12, pagina: 1, porPagina: 10 });
+    expect(p1).toMatchObject({ total: 13, pagina: 1, porPagina: 10 });
     expect(p1.filas).toHaveLength(10);
     const p2 = await listar(`carreraId=${e.carreraA2}&pagina=2`);
-    expect(p2.filas).toHaveLength(2);
+    expect(p2.filas).toHaveLength(3);
     const orden = (await listar(`canalId=${e.canal}`)).filas.map((f) => f.sesion.fecha);
     expect(orden).toEqual([...orden].sort().reverse());
     expect((await llamar(ap.url, 'GET', '/api/registros?pagina=0', { cookies: cCal })).estado).toBe(400);
+  });
+
+  it.each(['1e300', '100001', '0', '1.5', 'abc'])('pagina=%s responde 400', async (pagina) => {
+    const r = await llamar(ap.url, 'GET', `/api/registros?pagina=${pagina}`, { cookies: cCal });
+    expect(r.estado).toBe(400);
   });
 
   it('años de las sesiones con registros, de mayor a menor', async () => {

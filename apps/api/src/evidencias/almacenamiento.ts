@@ -1,4 +1,4 @@
-import type { ReadStream } from 'node:fs';
+import type { FileHandle } from 'node:fs/promises';
 
 /**
  * Dónde viven los archivos de las evidencias. Hoy es disco local; la interfaz existe para
@@ -7,7 +7,8 @@ import type { ReadStream } from 'node:fs';
 export interface AlmacenamientoEvidencias {
   /** Mueve un archivo recién subido (en `.entrantes`) a su lugar definitivo y devuelve su ruta relativa. */
   incorporar(rutaTemporal: string): Promise<string>;
-  abrir(rutaRelativa: string): ReadStream;
+  /** Un único manejador: quien lo abre verifica y envía los mismos bytes, y debe cerrarlo. */
+  abrir(rutaRelativa: string): Promise<FileHandle>;
   borrar(rutaRelativa: string): Promise<void>;
 }
 

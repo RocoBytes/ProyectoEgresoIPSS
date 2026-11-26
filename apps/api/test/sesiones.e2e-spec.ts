@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { RespuestaSesionCreada } from '@ipss/shared';
 import { hoyEnSantiago } from '../src/comun/fecha-texto';
+import { Readable } from 'node:stream';
+import { ALMACENAMIENTO_EVIDENCIAS, type AlmacenamientoEvidencias } from '../src/evidencias/almacenamiento';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { type AppDePruebas, conMigrador, levantarApp } from './ayudas/acceso';
 import { type Escenario, HEIC, JPG, PDF, PNG, cookiesDeUsuario, crearEscenario, llamar, sumarDias } from './ayudas/escenario';
@@ -131,6 +133,44 @@ describe('POST /api/sesiones y descarga de evidencias', () => {
     expect(await readdir(join(dir, '.entrantes'))).toEqual([]);
   });
 
+  it('límites de tamaño: cada uno aparece en su campo con su mensaje', async () => {
+    const largo = 'x'.repeat(201);
+    const r = await crear(datos({
+      instancia: largo,
+      participantes: Array.from({ length: 51 }, (_, i) => `P${i}`),
+      registros: [registro({ descripcion: 'y'.repeat(2001) }), registro({ nivelImpacto: 'RECURSO', recurso: largo })],
+    }));
+    expect(r.estado).toBe(400);
+    expect(campos(r)).toMatchObject({
+      instancia: 'El nombre de la instancia admite como máximo 200 caracteres.',
+      participantes: 'Anota como máximo 50 participantes.',
+      'registros.0.descripcion': 'La descripción admite como máximo 2000 caracteres.',
+      'registros.1.recurso': 'El recurso admite como máximo 200 caracteres.',
+    });
+    const muchos = await crear(datos({ participantes: ['Ana', largo], registros: Array.from({ length: 51 }, (_, i) => registro({ asignaturaId: i % 2 === 0 ? e.asignaturaA : e.asignaturaA2 })) }));
+    expect(campos(muchos)).toMatchObject({ participantes: 'Cada participante admite como máximo 200 caracteres.', registros: 'Una sesión admite como máximo 50 registros.' });
+  });
+
+  it('un nombre de archivo de 300 caracteres se guarda recortado a 255 y con su extensión', async () => {
+    const r = await crear(datos(), { acta: { nombre: `${'a'.repeat(296)}.pdf`, contenido: PDF, tipo: 'application/pdf' } });
+    expect(r.estado).toBe(201);
+    const fila = await conMigrador((c) => c.query<{ nombre_original: string }>('SELECT nombre_original FROM evidencia WHERE sesion_id = $1', [r.cuerpo.sesionId]));
+    expect(fila.rows[0]?.nombre_original).toHaveLength(255);
+    expect(fila.rows[0]?.nombre_original.endsWith('.pdf')).toBe(true);
+    const mala = await crear(datos(), { fotos: [{ nombre: `${'b'.repeat(300)}.txt`, contenido: Buffer.from('hola') }] });
+    expect(campos(mala)['fotos.0']).toMatch(/^“b+\.txt” no es JPG ni PNG\.$/);
+    expect((campos(mala)['fotos.0'] ?? '').length).toBeLessThan(300);
+  });
+
+  it('la 11.ª foto y un segundo archivo de más de 20 MB tras uno válido no dejan temporales', async () => {
+    const once = await crear(datos(), { fotos: Array.from({ length: 11 }, (_, i) => ({ nombre: `f${i}.png`, contenido: PNG })) });
+    expect(once.estado).toBe(400);
+    expect(await readdir(join(dir, '.entrantes'))).toEqual([]);
+    const grande = await crear(datos(), { fotos: [{ nombre: 'ok.png', contenido: PNG }, { nombre: 'grande.png', contenido: Buffer.concat([PNG, Buffer.alloc(21 * 1024 * 1024)]) }] });
+    expect(grande.estado).toBe(413);
+    expect(await readdir(join(dir, '.entrantes'))).toEqual([]);
+  });
+
   it('un 400 de validación tampoco deja archivos temporales', async () => {
     await crear(datos({ instancia: 'x' }), { fotos: [{ nombre: 'a.png', contenido: PNG }] });
     expect(await readdir(join(dir, '.entrantes'))).toEqual([]);
@@ -160,6 +200,22 @@ describe('POST /api/sesiones y descarga de evidencias', () => {
     it('sin sesión: 401; id inexistente: 404', async () => {
       expect((await llamar(ap.url, 'GET', `/api/evidencias/${evidenciaId}/descarga`)).estado).toBe(401);
       expect((await llamar(ap.url, 'GET', `/api/evidencias/${randomUUID()}/descarga`, { cookies })).estado).toBe(404);
+    });
+
+    it('si el envío falla tras las cabeceras, se corta la conexión y la API sigue viva', async () => {
+      const almacenamiento = ap.app.get<AlmacenamientoEvidencias>(ALMACENAMIENTO_EVIDENCIAS);
+      const real = almacenamiento.abrir.bind(almacenamiento);
+      const espia = jest.spyOn(almacenamiento, 'abrir').mockImplementationOnce(async (r) => {
+        const manejador = await real(r);
+        const original = manejador.createReadStream.bind(manejador);
+        let llamadas = 0;
+        // La primera lectura (hash) es la real; la del envío falla como si el disco se cayera a mitad de camino.
+        manejador.createReadStream = ((opciones?: Parameters<typeof original>[0]) => (++llamadas === 2 ? new Readable({ read() { this.destroy(new Error('fallo de disco')); } }) : original(opciones))) as typeof manejador.createReadStream;
+        return manejador;
+      });
+      await expect(llamar(ap.url, 'GET', `/api/evidencias/${evidenciaId}/descarga`, { cookies })).rejects.toThrow();
+      espia.mockRestore();
+      expect((await llamar(ap.url, 'GET', `/api/evidencias/${evidenciaId}/descarga`, { cookies })).estado).toBe(200);
     });
 
     it('un archivo alterado en disco da 500 con el mensaje y no se entrega', async () => {

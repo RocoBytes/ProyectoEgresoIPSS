@@ -100,8 +100,8 @@ export class RegistrosService {
   }
 
   async anios(): Promise<RespuestaAnios> {
-    const fechas = await this.prisma.sesion.findMany({ where: { registros: { some: {} } }, select: { fecha: true } });
-    return [...new Set(fechas.map((s) => Number(deFechaBd(s.fecha).slice(0, 4))))].sort((a, b) => b - a);
+    const filas = await this.prisma.$queryRaw<Array<{ anio: number }>>`SELECT DISTINCT EXTRACT(YEAR FROM s.fecha)::int AS anio FROM sesion s WHERE EXISTS (SELECT 1 FROM registro r WHERE r.sesion_id = s.id) ORDER BY 1 DESC`;
+    return filas.map((f) => f.anio);
   }
 
   async detalle(usuario: UsuarioAutenticado, id: string): Promise<DetalleRegistro> {
