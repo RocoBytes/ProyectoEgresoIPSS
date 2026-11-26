@@ -147,15 +147,18 @@ model UsuarioCarrera {
 }
 
 model RefreshToken {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  usuarioId  String    @map("usuario_id") @db.Uuid
-  hash       String    @unique @db.Char(64)
-  expiraEn   DateTime  @map("expira_en") @db.Timestamptz(3)
-  revocadoEn DateTime? @map("revocado_en") @db.Timestamptz(3)
-  creadoEn   DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
-  usuario    Usuario   @relation(fields: [usuarioId], references: [id])
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioId        String    @map("usuario_id") @db.Uuid
+  hash             String    @unique @db.Char(64)
+  familia          String    @db.Uuid
+  sesionIniciadaEn DateTime  @map("sesion_iniciada_en") @db.Timestamptz(3)
+  expiraEn         DateTime  @map("expira_en") @db.Timestamptz(3)
+  revocadoEn       DateTime? @map("revocado_en") @db.Timestamptz(3)
+  creadoEn         DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+  usuario          Usuario   @relation(fields: [usuarioId], references: [id])
 
   @@index([usuarioId])
+  @@index([familia])
   @@map("refresh_token")
 }
 

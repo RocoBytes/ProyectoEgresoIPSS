@@ -1,9 +1,11 @@
 import { Controller, Get, HttpStatus, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import type { RespuestaSalud } from '@ipss/shared';
+import { Publica } from '../acceso/roles';
 import { SaludService } from './salud.service';
 
-// Sin guard a propósito: lo consultan Compose y el balanceador antes de que exista sesión.
+// Pública a propósito: lo consultan Compose y el balanceador antes de que exista sesión.
+@Publica()
 @Controller('salud')
 export class SaludController {
   constructor(private readonly salud: SaludService) {}

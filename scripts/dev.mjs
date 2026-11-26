@@ -10,6 +10,8 @@ const dirApi = resolve(raiz, 'apps/api');
 // Valores de desarrollo; si el entorno ya define alguno, ese gana.
 const entornoDev = {
   DATABASE_URL: 'postgresql://ipss_api:api_dev@127.0.0.1:55432/ipss',
+  // Solo para desarrollo local: público en el repositorio, así que nunca sirve fuera de este script.
+  JWT_SECRETO: 'secreto-solo-para-desarrollo-local-no-usar-en-produccion',
   PORT: '3000',
   HOST: '127.0.0.1',
 };

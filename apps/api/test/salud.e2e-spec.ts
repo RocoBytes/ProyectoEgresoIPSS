@@ -10,7 +10,7 @@ const URL_BD_PRUEBAS = 'postgresql://ipss_api:api_dev@127.0.0.1:55433/ipss';
 const URL_BD_INALCANZABLE = 'postgresql://ipss_api:api_dev@127.0.0.1:1/ipss';
 
 async function levantar(urlBaseDeDatos: string): Promise<{ app: NestExpressApplication; url: string }> {
-  const config: Configuracion = { urlBaseDeDatos, puerto: 0, host: '127.0.0.1', saltosProxy: undefined };
+  const config: Configuracion = { urlBaseDeDatos, puerto: 0, host: '127.0.0.1', saltosProxy: undefined, jwtSecreto: 'secreto-de-pruebas-de-al-menos-32-caracteres' };
   const modulo = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(CONFIGURACION)
     .useValue(config)

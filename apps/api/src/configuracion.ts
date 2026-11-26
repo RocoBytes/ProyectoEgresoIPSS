@@ -6,7 +6,12 @@ export interface Configuracion {
   host: string;
   /** Saltos de proxy confiables (Caddy = 1). `undefined` desactiva `trust proxy`. */
   saltosProxy: number | undefined;
+  /** Secreto de firma de los JWT de acceso (HS256). */
+  jwtSecreto: string;
 }
+
+// HS256 firma con HMAC: un secreto corto se adivina por fuerza bruta sin conexión.
+const LARGO_MINIMO_JWT_SECRETO = 32;
 
 export const CONFIGURACION = Symbol('CONFIGURACION');
 
@@ -24,6 +29,13 @@ export function cargarConfiguracion(entorno: Entorno): Configuracion {
   if (url === undefined || url.trim() === '') {
     throw new Error('Falta la variable de entorno DATABASE_URL (conexión a la base con el rol ipss_api)');
   }
+  const secreto = entorno['JWT_SECRETO'];
+  if (secreto === undefined || secreto.trim() === '') {
+    throw new Error('Falta la variable de entorno JWT_SECRETO (secreto de firma de los JWT)');
+  }
+  if (secreto.length < LARGO_MINIMO_JWT_SECRETO) {
+    throw new Error(`JWT_SECRETO debe tener al menos ${LARGO_MINIMO_JWT_SECRETO} caracteres`);
+  }
   const puerto = entorno['PORT'];
   const proxy = entorno['TRUST_PROXY'];
   return {
@@ -32,5 +44,6 @@ export function cargarConfiguracion(entorno: Entorno): Configuracion {
     // Por defecto solo escucha en loopback; Compose fija 0.0.0.0 dentro del contenedor.
     host: entorno['HOST'] === undefined || entorno['HOST'] === '' ? '127.0.0.1' : entorno['HOST'],
     saltosProxy: proxy === undefined || proxy === '' ? undefined : enteroNoNegativo('TRUST_PROXY', proxy),
+    jwtSecreto: secreto,
   };
 }

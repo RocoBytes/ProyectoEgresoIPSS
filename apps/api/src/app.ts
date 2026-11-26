@@ -1,5 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import type { Configuracion } from './configuracion';
 import { asignarIdPeticion } from './comun/id-peticion';
@@ -12,6 +13,7 @@ export function configurarApp(app: NestExpressApplication, config: Configuracion
   // y el limitador de intentos bloquearía a todos juntos.
   if (config.saltosProxy !== undefined) app.set('trust proxy', config.saltosProxy);
   app.use(helmet());
+  app.use(cookieParser());
   app.use(asignarIdPeticion);
   app.setGlobalPrefix('api');
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
