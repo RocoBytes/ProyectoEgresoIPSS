@@ -58,7 +58,7 @@ Es el primer hito acordado (hasta el 29-11-2026). Además prueba tres cosas que 
 - [x] **T4 Web mínima.** React Router con una ruta, TanStack Query sobre `/api/salud`, colores y tipografía del prototipo, `npm run dev`.
   - Ruta: delegada.
   - Verificación: Vitest, `vite build` y `npm run dev` con el proxy.
-- [ ] **T5 Infraestructura.** Dockerfiles, Compose con cinco servicios, Caddyfile, CI y sección "Comandos" de `CLAUDE.md`. ADR 0007.
+- [x] **T5 Infraestructura.** Dockerfiles, Compose con cinco servicios, Caddyfile, CI y sección "Comandos" de `CLAUDE.md`. ADR 0007.
   - Ruta: delegada.
   - Verificación:
     - `caddy validate`;
@@ -135,6 +135,20 @@ Es el primer hito acordado (hasta el 29-11-2026). Además prueba tres cosas que 
   - Desvío: `server.host: '127.0.0.1'` en Vite, porque en Node 26 `localhost` resolvía a `::1`.
 - 26-11-2026: el usuario autorizó seguir con T4 y T5 sin detenerse. Se mantiene Caddy, la recomendación vigente, porque el usuario no eligió Traefik.
 
+- 26-11-2026, T5 cerrada:
+  - Imágenes: la de la API con `prisma generate` dentro (880 MB, casi todo el CLI de Prisma) y la de la web con Caddy (88.5 MB).
+  - `schema-engine` queda en `/app/node_modules/@prisma/engines`.
+  - `caddy validate` aprueba los dos Caddyfiles.
+  - Con claves efímeras, `docker compose -f infra/compose.yaml up -d --wait` deja proxy, web, api y bd *healthy* y `migrar` en Exited (0).
+  - La migración la aplicó `ipss_migrador`: es dueño de las 16 tablas. `migrar` corrió solo en `ipss_datos`, red interna sin internet.
+  - La API está conectada solo como `ipss_api`.
+  - Caddy entrega la página (HTTP/2 200 con HSTS y CSP estricta) y `/api/salud`. HTTP redirige con 308.
+  - `/datos/evidencias` tiene dueño `node` y admite escritura; la raíz es de solo lectura.
+  - La captura con Chrome a través de Caddy está bien. `actionlint` pasa.
+  - Al final, `down -v`.
+  - No se pudo crear `infra/.env.ejemplo`: los permisos del usuario niegan escribir `.env*`. Lo crea el usuario.
+- `CLAUDE.md`: sección «Comandos» al día.
+
 ## Próximo paso
 
-T5: infraestructura.
+El usuario crea `infra/.env.ejemplo` y `infra/.env` y revisa `apps/api/.env.ejemplo`. Después decide sobre la revisión nativa bloqueada, el push y los PR.

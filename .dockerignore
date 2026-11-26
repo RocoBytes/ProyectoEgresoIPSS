@@ -1,0 +1,18 @@
+# El contexto de construcción es la raíz del repositorio: lo que no entra aquí
+# no puede filtrarse a una capa de la imagen ni invalidar su caché.
+**/node_modules
+**/dist
+**/coverage
+.git
+docs
+odd
+# Nunca deben viajar secretos locales a una imagen.
+**/.env
+**/.env.*
+# El cliente de Prisma se genera dentro de la imagen, no se copia del equipo local.
+apps/api/src/generated
+*.log
+.DS_Store
+.atl
+PROMPT_INICIAL.md
+.github
