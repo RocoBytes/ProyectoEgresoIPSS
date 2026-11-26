@@ -224,4 +224,23 @@ describe('PaginaNuevaSesion', () => {
     expect(screen.getByRole('link', { name: 'Ir al listado' })).toBeTruthy();
     await waitFor(() => expect(api.llamadas).toContain('POST /api/sesiones'));
   });
+  it('avisa antes de enviar cuando el acta y las fotos superan los 100 MB y no manda nada', async () => {
+    const api = preparar(soloInformatica);
+    await screen.findByRole('button', { name: 'Guardar sesión' });
+    // Cinco fotos de 20 MB (el máximo por archivo) más el acta: cada archivo cumple el máximo, pero el envío no.
+    const MB = 1024 * 1024;
+    adjuntar('Fotografías de la sesión', ...[1, 2, 3, 4, 5].map((n) => archivo(`f${String(n)}.jpg`, 20 * MB)));
+    await llenarValido();
+    expect((await screen.findAllByText('El envío supera los 100 MB en total. Adjunta menos fotos o reduce su tamaño.')).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('dialog', { name: 'Guardar la sesión' })).toBeNull();
+    expect(api.llamadas).not.toContain('POST /api/sesiones');
+  });
+
+  it('un 413 sin cuerpo (proxy) muestra el mismo mensaje del envío demasiado grande', async () => {
+    preparar(soloInformatica, { 'POST /api/sesiones': () => new Response(null, { status: 413 }) });
+    await llenarValido();
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirmar y guardar' }));
+    expect(await screen.findByText('El envío supera los 100 MB en total. Adjunta menos fotos o reduce su tamaño.')).toBeTruthy();
+    expect(screen.queryByText(/Respuesta inesperada/)).toBeNull();
+  });
 });

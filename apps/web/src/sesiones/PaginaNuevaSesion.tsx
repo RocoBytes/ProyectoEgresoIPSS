@@ -18,7 +18,7 @@ import { AreaTexto, Campo, Entrada, Selector } from '../comun/ui/Campo';
 import { Dialogo } from '../comun/ui/Dialogo';
 import { Folio, Tarjeta } from '../comun/ui/Marcas';
 import { crearSesion, obtenerCatalogos, obtenerObjetos } from './api';
-import { validarArchivo, type DestinoArchivo } from './archivos';
+import { envioExcedeElTope, MENSAJE_ENVIO_GRANDE, validarArchivo, type DestinoArchivo } from './archivos';
 import { conPrefijoRegistro, crearEsquemaSesion, esPerfil, type RegistroForm, type SesionForm } from './esquema';
 import { ZonaArchivo } from './ZonaArchivo';
 
@@ -351,6 +351,7 @@ function FormularioSesion({ usuario, catalogos }: { usuario: UsuarioActual; cata
   const [fotos, setFotos] = useState<File[]>([]);
   const [errorActa, setErrorActa] = useState<string | null>(null);
   const [errorsFotos, setErrorsFotos] = useState<Record<string, string>>({});
+  const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
   const [rechazo, setRechazo] = useState<string | null>(null);
   const [intentado, setIntentado] = useState(false);
   const [pendiente, setPendiente] = useState<DatosSesionNueva | null>(null);
@@ -402,6 +403,9 @@ function FormularioSesion({ usuario, catalogos }: { usuario: UsuarioActual; cata
         }
         setErrorsFotos(nuevosFotos);
         setAvisoServidor(null);
+      } else if (error.estado === 413 && cuerpo === undefined) {
+        // Un proxy (Caddy, Cloudflare) cortó por tamaño total y no dejó mensaje: se explica igual que la API.
+        setAvisoServidor(MENSAJE_ENVIO_GRANDE);
       } else setAvisoServidor(error.message);
     },
   });
@@ -498,15 +502,20 @@ function FormularioSesion({ usuario, catalogos }: { usuario: UsuarioActual; cata
   const alEnviar = (evento: React.FormEvent<HTMLFormElement>) => {
     setIntentado(true);
     setAvisoServidor(null);
+    setErrorEnvio(null);
     setErrorActa(acta === null ? 'Adjunta el acta en PDF: es la evidencia de origen de la sesión.' : null);
     void handleSubmit((valores) => {
-      if (acta !== null) setPendiente(aDatos(valores));
+      if (acta === null) return;
+      const datos = aDatos(valores);
+      if (envioExcedeElTope(acta, fotos, JSON.stringify(datos))) setErrorEnvio(MENSAJE_ENVIO_GRANDE);
+      else setPendiente(datos);
     })(evento);
   };
 
   const lista: Array<[string, string]> = [
     ...aplanar(formState.errors),
     ...(errorActa !== null ? ([['acta', errorActa]] as Array<[string, string]>) : []),
+    ...(errorEnvio !== null ? ([[fotos.length > 0 ? 'fotos' : 'acta', errorEnvio]] as Array<[string, string]>) : []),
     ...Object.entries(errorsFotos),
   ];
   const nombreCarrera = (id: string) => catalogos.carreras.find((c) => c.id === id)?.nombre ?? '';
@@ -621,6 +630,7 @@ function FormularioSesion({ usuario, catalogos }: { usuario: UsuarioActual; cata
                 />
               )}
               {errorActa !== null && <p className="text-[12.5px] font-medium text-error">{errorActa}</p>}
+              {errorEnvio !== null && fotos.length === 0 && <p className="text-[12.5px] font-medium text-error">{errorEnvio}</p>}
             </div>
             <div className="grid gap-1.5">
               <span className="text-[13px] font-semibold text-navy">
@@ -647,6 +657,7 @@ function FormularioSesion({ usuario, catalogos }: { usuario: UsuarioActual; cata
                 accept=".jpg,.jpeg,.png,image/jpeg,image/png"
                 alRecibir={(a) => recibir('foto', a)}
               />
+              {errorEnvio !== null && fotos.length > 0 && <p className="text-[12.5px] font-medium text-error">{errorEnvio}</p>}
             </div>
             {rechazo !== null && (
               <Aviso tipo="error" rol="alert" titulo="No se adjuntó el archivo">

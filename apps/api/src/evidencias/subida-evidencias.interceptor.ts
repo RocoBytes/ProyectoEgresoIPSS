@@ -9,8 +9,9 @@ import { SUBDIRECTORIO_ENTRANTES } from './disco-local';
 
 export const MAXIMO_BYTES_ARCHIVO = 20 * 1024 * 1024;
 export const MAXIMO_FOTOS = 10;
-// Tope del envío completo (acta + fotos + campos). Es el mismo de Caddy y del plan gratuito de
-// Cloudflare, que cortan por su cuenta sin explicar nada; así la persona recibe un mensaje claro.
+// Tope del envío completo (acta + fotos + campos). Caddy (413 sin cuerpo) y Cloudflare (su página de error)
+// rechazan primero por Content-Length, sin mensaje de la API; la web lo evita avisando antes de enviar y traduce ese 413 al mismo mensaje.
+// Esta comprobación es la autoridad cuando no hay proxy delante (desarrollo) y nunca lee el cuerpo.
 // Decimal a propósito: Caddy interpreta `100MB` como 100.000.000 de bytes, no 100 MiB.
 export const MAXIMO_BYTES_ENVIO = 100 * 1000 * 1000;
 const MENSAJE_ENVIO_GRANDE = 'El envío supera los 100 MB en total. Adjunta menos fotos o reduce su tamaño.';
