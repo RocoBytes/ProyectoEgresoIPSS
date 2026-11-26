@@ -1,0 +1,1394 @@
+<title>Prototipo Perfil de Egreso</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Montserrat:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: aplicación a pantalla completa. Barra lateral azul marino fija, barra superior con búsqueda y cuenta, contenido en tarjetas.
+   Firma visual: el folio del registro en tipografía monoespaciada y la "pista" de trazabilidad (sesión, registro, compromiso, cierre).
+   Un solo aspecto claro por decisión: es el único tema que tendrá el producto. */
+:root{
+  --navy:#102B42; --navy-2:#183A5A; --navy-3:#0B2134; --marino-claro:#DCE4EB;
+  --azul:#0077C2; --azul-osc:#005C97; --azul-claro:#E6F1FA; --azul-borde:#B5D5EE; --anillo:rgba(0,119,194,.24);
+  --oro:#CFB47C; --oro-osc:#86661F; --oro-claro:#F7F0E0;
+  --fondo:#F5F3F0; --barra-fondo:rgba(245,243,240,.9); --superficie:#FFFFFF; --superficie-2:#FAF9F7; --borde:#E4DFD8; --borde-fuerte:#C9C2B8;
+  --texto:#1E2A35; --texto-2:#5C6773;
+  --sobre-navy:#FFFFFF; --sobre-navy-2:#AFC1D1; --sobre-navy-3:#7C95AC; --linea-navy:rgba(255,255,255,.14); --velo-navy:rgba(255,255,255,.05);
+  --ok:#17693F; --ok-relleno:#2F8F5B; --ok-fondo:#E4F3EA; --ok-borde:#A9D5BC;
+  --alerta:#96490A; --alerta-relleno:#C47A12; --alerta-fondo:#FCF0D5; --alerta-borde:#EBCB8B;
+  --error:#A8261B; --error-fondo:#FCEBE8; --error-borde:#EFB3AC;
+  --neutro:#535A62; --neutro-relleno:#8E887F; --neutro-fondo:#EEEBE7; --neutro-borde:#D4CEC6;
+  --velo:rgba(11,33,52,.56); --sombra-1:0 1px 2px rgba(16,43,66,.05); --sombra-2:0 16px 40px rgba(16,43,66,.16);
+  --r:12px; --r-s:8px; --r-xs:6px;
+  --fuente:'Montserrat','Segoe UI',system-ui,-apple-system,sans-serif; --mono:'IBM Plex Mono',ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--fondo);color:var(--texto);font-family:var(--fuente);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--navy)}
+#app{min-height:100%;display:flex;flex-direction:column}
+#app>*{flex:1 0 auto}
+h1,h2,h3,p,ol,ul{margin:0}
+h1{font-size:24px;line-height:1.2;font-weight:700;color:var(--navy);letter-spacing:-.01em;text-wrap:balance}
+h2{font-size:15px;font-weight:700;color:var(--navy)}
+h3{font-size:13px;font-weight:700;color:var(--navy)}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--azul);outline-offset:2px}
+.ic{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.suave{color:var(--texto-2)}
+.mini{font-size:12.5px}
+.folio{display:inline-block;font-family:var(--mono);font-weight:500;font-size:12.5px;color:var(--navy);background:var(--superficie-2);border:1px solid var(--borde-fuerte);border-radius:var(--r-xs);padding:2px 7px;white-space:nowrap;line-height:1.5}
+button.folio{cursor:pointer}
+button.folio:hover{border-color:var(--azul);color:var(--azul-osc);background:var(--azul-claro)}
+
+/* Botones y campos */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 16px;border-radius:var(--r-s);border:1px solid transparent;font-weight:600;font-size:13.5px;cursor:pointer;white-space:nowrap;background:none;transition:background .12s,border-color .12s}
+.btn-pri{background:var(--azul);color:var(--sobre-navy)}
+.btn-pri:hover{background:var(--azul-osc)}
+.btn-sec{background:var(--superficie);border-color:var(--borde-fuerte);color:var(--navy)}
+.btn-sec:hover{border-color:var(--navy);background:var(--superficie-2)}
+.btn-rojo{background:var(--error);color:var(--sobre-navy)}
+.btn-fantasma{color:var(--texto-2)}
+.btn-fantasma:hover{background:var(--neutro-fondo);color:var(--texto)}
+.btn-ancho{width:100%}
+.btn-icono{width:36px;min-height:36px;padding:0;border-radius:var(--r-s);color:var(--texto-2)}
+.btn-icono:hover{background:var(--neutro-fondo);color:var(--navy)}
+.btn[disabled]{opacity:.55;cursor:not-allowed}
+.giro{width:15px;height:15px;border-radius:50%;border:2px solid var(--linea-navy);border-top-color:var(--sobre-navy);animation:gira .7s linear infinite}
+@keyframes gira{to{transform:rotate(360deg)}}
+.enlace{background:none;border:0;padding:0;color:var(--azul-osc);font-weight:600;cursor:pointer;text-align:left}
+.enlace:hover{text-decoration:underline;text-underline-offset:3px}
+.campo{display:grid;gap:6px;min-width:0;align-content:start}
+.campo label,.etq{font-size:12.5px;font-weight:600;color:var(--texto)}
+.campo .ayuda{font-size:12px;color:var(--texto-2)}
+input[type=text],input[type=email],input[type=password],input[type=date],input[type=search],select,textarea{width:100%;min-height:40px;padding:8px 12px;border:1px solid var(--borde-fuerte);border-radius:var(--r-s);background:var(--superficie);transition:border-color .12s,box-shadow .12s}
+input:focus,select:focus,textarea:focus{outline:0;border-color:var(--azul);box-shadow:0 0 0 3px var(--anillo)}
+textarea{min-height:88px;resize:vertical}
+::placeholder{color:var(--texto-2);opacity:.75}
+select[disabled],input[disabled]{background:var(--neutro-fondo);color:var(--texto-2)}
+[aria-invalid=true]{border-color:var(--error)!important}
+.err{font-size:12.5px;color:var(--error);font-weight:600}
+.aviso{border-radius:var(--r-s);padding:12px 14px;display:flex;gap:10px;align-items:flex-start;border:1px solid;font-size:13px}
+.aviso>div{display:grid;gap:2px;min-width:0}
+.aviso b{font-weight:700}
+.aviso .ic{margin-top:1px}
+.aviso-error{background:var(--error-fondo);border-color:var(--error-borde);color:var(--error)}
+.aviso-alerta{background:var(--alerta-fondo);border-color:var(--alerta-borde);color:var(--alerta)}
+.aviso-info{background:var(--azul-claro);border-color:var(--azul-borde);color:var(--azul-osc)}
+.aviso-ok{background:var(--ok-fondo);border-color:var(--ok-borde);color:var(--ok)}
+.aviso-neutro{background:var(--neutro-fondo);border-color:var(--neutro-borde);color:var(--neutro)}
+
+/* Marca */
+.marca{display:flex;align-items:center;gap:11px;color:var(--sobre-navy);line-height:1.15}
+.marca svg{flex:none}
+.marca b{display:block;font-size:15px;font-weight:700}
+.marca span{display:block;font-size:11px;color:var(--sobre-navy-2);letter-spacing:.04em;margin-top:2px}
+
+/* Acceso */
+.acceso{display:grid;grid-template-columns:minmax(0,11fr) minmax(0,10fr)}
+.acceso-marca{background:var(--navy);color:var(--sobre-navy);display:flex;flex-direction:column;gap:32px;justify-content:space-between;position:relative;overflow:hidden;
+  padding:40px 48px 32px max(48px,env(safe-area-inset-left,0px))}
+.acceso-marca::after{content:"";position:absolute;right:-170px;top:-170px;width:420px;height:420px;border-radius:50%;border:1px solid var(--linea-navy);box-shadow:0 0 0 120px var(--velo-navy);pointer-events:none}
+.acceso-marca>*{position:relative;z-index:1}
+.lema{font-size:32px;line-height:1.16;font-weight:700;letter-spacing:-.015em;max-width:15ch;text-wrap:balance}
+.lema em{font-style:normal;color:var(--oro)}
+.acceso-marca .sub{color:var(--sobre-navy-2);max-width:44ch;margin-top:14px;font-size:14.5px}
+.ficha{background:var(--navy-2);border:1px solid var(--linea-navy);border-radius:var(--r);padding:18px 20px;display:grid;gap:14px;max-width:400px;box-shadow:var(--sombra-2)}
+.ficha-cab{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.ficha .folio{background:var(--navy-3);border-color:var(--linea-navy);color:var(--oro)}
+.ficha-titulo b{display:block;font-size:14.5px}
+.ficha-titulo span{font-size:12.5px;color:var(--sobre-navy-2)}
+.acceso-pie{font-size:12px;color:var(--sobre-navy-3)}
+.acceso-form{background:var(--superficie);display:flex;align-items:center;justify-content:center;
+  padding:40px max(24px,env(safe-area-inset-right,0px)) 40px 24px}
+.acceso-caja{width:100%;max-width:380px;display:grid;gap:22px}
+.acceso-caja form{display:grid;gap:16px}
+.clave{position:relative}
+.clave input{padding-right:46px}
+.clave .btn-icono{position:absolute;right:2px;top:2px}
+.nota-acceso{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--texto-2);border-top:1px solid var(--borde);padding-top:16px}
+
+/* Estructura con sesión */
+.shell{display:grid;grid-template-columns:248px minmax(0,1fr)}
+.lateral{background:var(--navy);color:var(--sobre-navy);display:flex;flex-direction:column;gap:28px;position:sticky;top:0;align-self:start;height:100vh;max-height:100dvh;
+  padding:22px 14px 18px max(14px,env(safe-area-inset-left,0px))}
+.lateral-cab{display:flex;align-items:center;justify-content:space-between;padding:0 6px}
+.lateral-cab .btn-icono{display:none;color:var(--sobre-navy)}
+.lateral-cab .btn-icono:hover{background:var(--navy-2);color:var(--sobre-navy)}
+.lateral nav{display:grid;gap:3px}
+.nav-etq{font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--sobre-navy-3);padding:0 12px 8px}
+.lateral nav button{display:flex;align-items:center;gap:11px;background:none;border:0;border-radius:var(--r-s);padding:10px 12px;text-align:left;color:var(--sobre-navy-2);font-weight:600;font-size:13.5px;cursor:pointer;position:relative}
+.lateral nav button:hover{background:var(--velo-navy);color:var(--sobre-navy)}
+.lateral nav button[aria-current=page]{background:var(--navy-2);color:var(--sobre-navy)}
+.lateral nav button[aria-current=page]::before{content:"";position:absolute;left:-14px;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:var(--oro)}
+.lateral nav button[aria-current=page] .ic{color:var(--oro)}
+.lateral-pie{margin-top:auto;font-size:11.5px;color:var(--sobre-navy-3);padding:0 12px}
+.principal{min-width:0;display:flex;flex-direction:column}
+.barra{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;display:flex;gap:16px;align-items:center;justify-content:space-between;min-height:64px;background:var(--barra-fondo);backdrop-filter:blur(10px);border-bottom:1px solid var(--borde);
+  padding:10px max(32px,env(safe-area-inset-right,0px)) 10px 32px}
+.buscador{position:relative;flex:1;max-width:420px;min-width:0}
+.buscador .ic{position:absolute;left:12px;top:11px;color:var(--texto-2);pointer-events:none}
+.buscador input{padding-left:38px}
+.usuario{position:relative;flex:none}
+.usuario-btn{display:flex;align-items:center;gap:10px;background:none;border:1px solid transparent;border-radius:999px;padding:4px 10px 4px 4px;cursor:pointer;text-align:left}
+.usuario-btn:hover,.usuario-btn[aria-expanded=true]{background:var(--superficie);border-color:var(--borde)}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--navy);color:var(--oro);display:grid;place-items:center;font-size:12px;font-weight:700;letter-spacing:.04em;flex:none}
+.usuario-txt{display:grid;line-height:1.25}
+.usuario-txt b{font-size:13px;color:var(--navy)}
+.usuario-txt span{font-size:11.5px;color:var(--texto-2)}
+.usuario-menu{position:absolute;right:0;top:calc(100% + 8px);width:280px;background:var(--superficie);border:1px solid var(--borde);border-radius:var(--r);box-shadow:var(--sombra-2);padding:16px;display:grid;gap:14px;z-index:25}
+.usuario-menu dl{grid-template-columns:minmax(0,1fr);gap:1px}
+.usuario-menu dd{margin-bottom:8px;overflow-wrap:anywhere}
+.contenido{width:100%;max-width:1240px;margin:0 auto;display:grid;gap:22px;align-content:start;padding:28px max(32px,env(safe-area-inset-right,0px)) 56px 32px}
+.cab{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;justify-content:space-between}
+.cab p{max-width:68ch;margin-top:4px}
+.acciones{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tarjeta{background:var(--superficie);border:1px solid var(--borde);border-radius:var(--r);box-shadow:var(--sombra-1);padding:20px;display:grid;gap:14px;min-width:0;align-content:start}
+.tarjeta-cab{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:6px 10px}
+.rejilla{display:grid;gap:14px 16px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.dos{display:grid;gap:20px;grid-template-columns:minmax(0,5fr) minmax(0,3fr);align-items:start}
+.columna{display:grid;gap:20px;min-width:0;align-content:start}
+.miga{display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--texto-2)}
+.miga .ic{width:14px;height:14px}
+
+/* Panel */
+.segmento{display:inline-flex;background:var(--neutro-fondo);border-radius:var(--r-s);padding:3px;gap:2px}
+.segmento button{border:0;background:none;border-radius:var(--r-xs);padding:6px 14px;font-weight:600;font-size:13px;color:var(--texto-2);cursor:pointer}
+.segmento button[aria-pressed=true]{background:var(--superficie);color:var(--navy);box-shadow:var(--sombra-1)}
+.panel-filtros{display:grid;gap:12px 16px;grid-template-columns:auto minmax(0,1fr) minmax(0,1.4fr) auto;align-items:end}
+.panel-filtros .segmento{min-height:40px}
+.panel-filtros .segmento button{padding:6px 16px}
+.panel-res{font-size:13px;color:var(--texto-2);white-space:nowrap;padding-bottom:9px}
+.panel-res b{font-size:22px;line-height:1;color:var(--navy);margin-right:3px}
+.fila-2-1{display:grid;gap:20px;grid-template-columns:minmax(0,2fr) minmax(0,1fr)}
+.fila-3{display:grid;gap:20px;grid-template-columns:repeat(3,minmax(0,1fr))}
+.leyendas{display:flex;flex-wrap:wrap;gap:6px 14px}
+.ley{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--texto-2)}
+.ley i,.ley-fila i{width:10px;height:10px;border-radius:3px;flex:none}
+.seg-cerrado{background:var(--ok-relleno)} .seg-abierto{background:var(--azul)} .seg-anulado{background:var(--neutro-relleno)} .seg-vencido{background:var(--alerta-relleno)}
+
+/* Indicadores principales */
+.tiles{display:grid;gap:16px;grid-template-columns:repeat(4,minmax(0,1fr))}
+.tile{display:grid;gap:12px;align-content:space-between;text-align:left;background:var(--superficie);border:1px solid var(--borde);border-radius:var(--r);box-shadow:var(--sombra-1);padding:16px 18px 18px;min-width:0;color:var(--texto)}
+button.tile{cursor:pointer;transition:border-color .12s,transform .12s}
+button.tile:hover{border-color:var(--borde-fuerte);transform:translateY(-1px)}
+.tile-cab{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tile-etq{font-size:12.5px;font-weight:600;color:var(--texto-2)}
+.tile-ic{width:32px;height:32px;border-radius:var(--r-s);display:grid;place-items:center;background:var(--azul-claro);color:var(--azul-osc);flex:none}
+.tile-ic.verde{background:var(--ok-fondo);color:var(--ok)} .tile-ic.dorado{background:var(--oro-claro);color:var(--oro-osc)}
+.tile-fila{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.tile-valor{font-size:36px;line-height:1;font-weight:700;color:var(--navy);letter-spacing:-.02em}
+.tile-sub{font-size:12.5px;color:var(--texto-2)}
+.tile-sub.aten{color:var(--alerta);font-weight:600}
+.tile-navy{background:var(--navy);border-color:var(--navy);color:var(--sobre-navy)}
+button.tile-navy:hover{border-color:var(--navy-2)}
+.tile-navy .tile-etq,.tile-navy .tile-sub{color:var(--sobre-navy-2)}
+.tile-navy .tile-valor{color:var(--sobre-navy)}
+.tile-navy .tile-ic{background:var(--navy-2);color:var(--oro)}
+.metro{display:flex;gap:2px;height:8px}
+.metro span{display:block;border-radius:4px;min-width:4px}
+.metro .vacio-m{flex:1;background:var(--neutro-fondo)}
+.medidor{display:block;height:8px;border-radius:4px;overflow:hidden}
+.medidor span{display:block;height:100%;border-radius:4px}
+.medidor.ok{background:var(--ok-fondo)} .medidor.ok span{background:var(--ok-relleno)}
+.medidor.oro{background:var(--oro-claro)} .medidor.oro span{background:var(--oro)}
+
+/* Líneas de tendencia */
+.chispa{position:relative;display:block;height:40px;margin-right:6px}
+.chispa svg{display:block;width:100%;height:100%;overflow:visible}
+.ch-linea{fill:none;stroke:var(--neutro-relleno);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.ch-area{fill:var(--neutro-relleno);opacity:.1;stroke:none}
+.ch-punto{position:absolute;width:10px;height:10px;border-radius:50%;transform:translate(-50%,-50%);background:var(--neutro-relleno);box-shadow:0 0 0 2px var(--superficie)}
+.chispa.acento .ch-linea{stroke:var(--azul)} .chispa.acento .ch-area{fill:var(--azul)} .chispa.acento .ch-punto{background:var(--azul)}
+.chispa.oro .ch-linea{stroke:var(--oro)} .chispa.oro .ch-area{fill:var(--oro);opacity:.16} .chispa.oro .ch-punto{background:var(--oro);box-shadow:0 0 0 2px var(--navy)}
+
+/* Columnas apiladas por mes */
+.grafico{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:18px 256px auto;gap:0 10px}
+.eje-y{grid-row:2;position:relative;width:1.2rem;font-size:11px;color:var(--texto-2);font-variant-numeric:tabular-nums}
+.eje-y span{position:absolute;right:0;transform:translateY(50%)}
+.plot{grid-row:2;grid-column:2;position:relative;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));border-bottom:1px solid var(--borde-fuerte)}
+.linea-g{position:absolute;left:0;right:0;height:1px;background:var(--borde)}
+.col{position:relative;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;border-radius:var(--r-xs) var(--r-xs) 0 0;outline-offset:-2px}
+.col:hover,.col:focus-visible{background:var(--superficie-2)}
+.pila{display:flex;flex-direction:column-reverse;gap:2px;width:22px;max-width:56%;flex:none}
+.pila span{display:block;min-height:3px}
+.pila span:last-child{border-radius:4px 4px 0 0}
+.col:hover .pila span{filter:brightness(1.08)}
+.tope{font-size:12px;font-weight:700;color:var(--navy);line-height:1;margin-bottom:4px}
+.eje-x{grid-row:3;grid-column:2;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));font-size:11px;color:var(--texto-2);text-align:center;padding-top:7px}
+.eje-x .futuro{opacity:.55}
+
+/* Dona de estados */
+.dona-caja{display:flex;flex-wrap:wrap;gap:18px 24px;align-items:center;justify-content:center}
+.dona{position:relative;width:168px;height:168px;flex:none}
+.dona svg{display:block}
+.dona-seg{fill:none;stroke-width:22;cursor:default}
+.dona-pista{fill:none;stroke:var(--neutro-fondo);stroke-width:22}
+.dona-seg:hover{stroke-width:25}
+.t-cerrado{stroke:var(--ok-relleno)} .t-abierto{stroke:var(--azul)} .t-anulado{stroke:var(--neutro-relleno)}
+.dona-centro{position:absolute;inset:0;display:grid;place-content:center;text-align:center;pointer-events:none}
+.dona-centro b{font-size:34px;line-height:1;color:var(--navy);letter-spacing:-.02em}
+.dona-centro span{font-size:12px;color:var(--texto-2);margin-top:3px}
+.ley-lista{display:grid;gap:2px;flex:1;min-width:150px}
+.ley-fila{display:grid;grid-template-columns:auto minmax(0,1fr) auto 2.6rem;gap:10px;align-items:center;background:none;border:0;border-radius:var(--r-xs);padding:8px;text-align:left;cursor:pointer;font-size:13px}
+.ley-fila:hover{background:var(--superficie-2)}
+.ley-fila b{color:var(--navy);font-variant-numeric:tabular-nums}
+.ley-fila .pc{color:var(--texto-2);font-size:12px;text-align:right;font-variant-numeric:tabular-nums}
+
+/* Anillos de cumplimiento */
+.indicadores{display:grid;gap:16px;grid-template-columns:repeat(3,minmax(0,1fr))}
+.indicador{display:grid;gap:10px;justify-items:center;text-align:center;align-content:start}
+.indicador b{display:block;font-size:13px;color:var(--navy)}
+.indicador .det{font-size:12px;color:var(--texto-2)}
+.anillo{position:relative;display:block;width:104px;height:104px}
+.anillo svg{display:block}
+.anillo circle{fill:none;stroke-width:10}
+.a-valor{stroke-linecap:round}
+.anillo .pc{position:absolute;inset:0;display:grid;place-items:center;font-size:20px;font-weight:700;color:var(--navy);letter-spacing:-.01em}
+.anillo.verde .a-pista{stroke:var(--ok-fondo)} .anillo.verde .a-valor{stroke:var(--ok-relleno)}
+.anillo.azul .a-pista{stroke:var(--azul-claro)} .anillo.azul .a-valor{stroke:var(--azul)}
+.anillo.marino .a-pista{stroke:var(--marino-claro)} .anillo.marino .a-valor{stroke:var(--navy)}
+
+/* Comparación anual */
+.anios{display:grid;gap:10px}
+.anio-card{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 18px;align-items:center;text-align:left;background:var(--superficie-2);border:1px solid var(--borde);border-radius:var(--r-s);padding:12px 14px;cursor:pointer}
+.anio-card:hover{border-color:var(--borde-fuerte)}
+.anio-card[aria-pressed=true]{background:var(--superficie);border-color:var(--azul);box-shadow:0 0 0 3px var(--anillo)}
+.anio-card .a{display:block;font-size:11px;font-weight:700;letter-spacing:.1em;color:var(--texto-2)}
+.anio-card .v{display:block;font-size:24px;font-weight:700;color:var(--navy);line-height:1.15}
+.anio-card .v small{font-size:12px;font-weight:500;color:var(--texto-2)}
+
+/* Barras horizontales */
+.barras{display:grid;gap:1px;margin:0 -8px}
+.barra-fila{display:grid;grid-template-columns:minmax(0,10rem) minmax(0,1fr) 1.8rem;gap:12px;align-items:center;background:none;border:0;padding:8px;border-radius:var(--r-xs);text-align:left;cursor:pointer}
+.barra-fila:hover{background:var(--superficie-2)}
+.barra-fila .n{font-size:13px;overflow-wrap:anywhere}
+.barra-fila .pista-b{height:10px;display:block;background:var(--neutro-fondo);border-radius:0 5px 5px 0}
+.barra-fila .rel{display:block;height:10px;background:var(--azul);border-radius:0 5px 5px 0;min-width:4px}
+.barra-fila:hover .rel{background:var(--azul-osc)}
+.barra-fila .c{font-weight:700;text-align:right;color:var(--navy);font-variant-numeric:tabular-nums}
+.apil{display:flex;gap:2px;height:10px}
+.apil span{display:block;min-width:4px}
+.apil span:last-child{border-radius:0 5px 5px 0}
+.barra-fila:hover .apil span{filter:brightness(1.08)}
+
+/* Últimas sesiones */
+.sesiones{display:grid}
+.sesiones button{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:16px;align-items:center;text-align:left;background:none;border:0;border-top:1px solid var(--borde);padding:12px 4px;cursor:pointer}
+.sesiones button:first-child{border-top:0}
+.sesiones button:hover{background:var(--superficie-2)}
+.sesiones .ic{color:var(--texto-2)}
+.dia{display:grid;place-items:center;align-content:center;width:46px;height:48px;border:1px solid var(--borde);border-radius:var(--r-s);background:var(--superficie-2);line-height:1.1}
+.dia b{font-size:16px;color:var(--navy)}
+.dia span{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--texto-2)}
+.doble b{display:block;color:var(--texto);font-weight:600}
+.doble span{display:block;font-size:12.5px;color:var(--texto-2)}
+#tip{position:fixed;z-index:60;background:var(--navy);color:var(--sobre-navy);font-size:12px;padding:7px 10px;border-radius:var(--r-xs);pointer-events:none;max-width:270px;box-shadow:var(--sombra-2)}
+
+/* Estados */
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap;border:1px solid}
+.pill i{width:6px;height:6px;border-radius:50%;background:currentColor}
+.pill-abierto{background:var(--azul-claro);color:var(--azul-osc);border-color:var(--azul-borde)}
+.pill-cerrado{background:var(--ok-fondo);color:var(--ok);border-color:var(--ok-borde)}
+.pill-anulado{background:var(--neutro-fondo);color:var(--neutro);border-color:var(--neutro-borde)}
+.pill-vencido{background:var(--alerta-fondo);color:var(--alerta);border-color:var(--alerta-borde)}
+.sello{display:inline-flex;gap:8px;align-items:center;border:1.5px solid;border-radius:var(--r-xs);padding:6px 12px;font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;white-space:nowrap}
+.sello .ic{width:15px;height:15px;stroke-width:2.2}
+.sello-abierto{color:var(--azul-osc);background:var(--azul-claro)} .sello-cerrado{color:var(--ok);background:var(--ok-fondo)} .sello-anulado{color:var(--neutro);background:var(--neutro-fondo)}
+
+/* Pista de trazabilidad */
+.pista{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));list-style:none;padding:0}
+.pista li{position:relative;padding:28px 16px 0 0;display:grid;gap:1px;align-content:start;min-width:0}
+.pista li::before{content:"";position:absolute;top:8px;left:8px;right:-8px;height:2px;background:var(--borde-fuerte)}
+.pista li:last-child::before{display:none}
+.pista li::after{content:"";position:absolute;top:0;left:0;width:18px;height:18px;border-radius:50%;background:var(--superficie);border:2px solid var(--borde-fuerte)}
+.pista li.hecho::after{background:var(--navy);border-color:var(--navy);box-shadow:inset 0 0 0 3px var(--superficie)}
+.pista li.sig::before{background:var(--navy)}
+.pista li.ok::after{background:var(--ok-relleno);border-color:var(--ok-relleno);box-shadow:inset 0 0 0 3px var(--superficie)}
+.pista li.alerta::after{border-color:var(--alerta);background:var(--alerta-fondo)}
+.pista li.neutro::after{background:var(--neutro-relleno);border-color:var(--neutro-relleno);box-shadow:inset 0 0 0 3px var(--superficie)}
+.pista .paso{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--texto-2)}
+.pista b{font-size:14px;color:var(--navy)}
+.pista .det{font-size:12.5px;color:var(--texto-2)}
+.pista li.alerta .det{color:var(--alerta);font-weight:600}
+.pista-v{grid-template-columns:minmax(0,1fr)}
+.pista-v li{padding:0 0 16px 30px}
+.pista-v li:last-child{padding-bottom:0}
+.pista-v li::before{top:8px;bottom:-8px;left:8px;right:auto;width:2px;height:auto}
+.ficha .pista li::before{background:var(--linea-navy)}
+.ficha .pista li::after{background:var(--navy-2);border-color:var(--sobre-navy-3);box-shadow:none}
+.ficha .pista li.hecho::after{background:var(--oro);border-color:var(--oro)}
+.ficha .pista li.sig::before{background:var(--oro)}
+.ficha .pista b{color:var(--sobre-navy);font-size:13px}
+.ficha .pista .det{color:var(--sobre-navy-2);font-size:12px}
+
+/* Listado */
+.filtros{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));align-items:end}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--azul-claro);color:var(--azul-osc);border:1px solid var(--azul-borde);border-radius:999px;padding:3px 6px 3px 12px;font-size:12.5px;font-weight:600}
+.chip button{display:grid;place-items:center;width:20px;height:20px;border:0;background:none;border-radius:50%;color:inherit;cursor:pointer;padding:0}
+.chip button:hover{background:var(--azul-borde)}
+.chip .ic{width:13px;height:13px}
+.tabla-scroll{overflow-x:auto;border:1px solid var(--borde);border-radius:var(--r);background:var(--superficie);box-shadow:var(--sombra-1)}
+table{border-collapse:collapse;width:100%;min-width:860px;font-size:13.5px}
+th{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--texto-2);font-weight:700;text-align:left;padding:12px 16px;background:var(--superficie-2);border-bottom:1px solid var(--borde);white-space:nowrap}
+td{padding:13px 16px;border-top:1px solid var(--borde);vertical-align:middle}
+tbody tr:first-child td{border-top:0}
+tr.fila{cursor:pointer}
+tr.fila:hover{background:var(--superficie-2)}
+.pie-tabla{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
+.paginas{display:flex;gap:4px;align-items:center}
+.paginas button{min-width:34px;height:34px;border-radius:var(--r-s);border:1px solid var(--borde);background:var(--superficie);font-weight:600;cursor:pointer;color:var(--texto-2);display:grid;place-items:center;padding:0 6px}
+.paginas button[aria-current=page]{background:var(--navy);border-color:var(--navy);color:var(--sobre-navy)}
+.paginas button[disabled]{opacity:.45;cursor:not-allowed}
+.vacio{padding:44px 20px;text-align:center;justify-items:center;color:var(--texto-2)}
+.vacio .circulo{width:48px;height:48px;border-radius:50%;background:var(--neutro-fondo);display:grid;place-items:center;color:var(--texto-2)}
+.vacio b{color:var(--navy);font-size:15px}
+
+/* Nueva sesión */
+.nueva{display:grid;gap:20px;grid-template-columns:minmax(0,1fr) 300px;align-items:start}
+.paso-n{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--navy);color:var(--sobre-navy);font-size:12px;font-weight:700;flex:none}
+.tarjeta-titulo{display:flex;gap:10px;align-items:center}
+.reg{border:1px solid var(--borde);border-radius:var(--r-s);padding:16px;display:grid;gap:14px;background:var(--superficie-2)}
+.reg-cab{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:36px}
+.archivos{display:grid;gap:6px}
+.archivo{display:flex;gap:10px;align-items:center;border:1px solid var(--borde);border-radius:var(--r-s);padding:8px 8px 8px 12px;background:var(--superficie)}
+.archivo>.ic{color:var(--azul-osc)}
+.archivo .nombre{flex:1;min-width:0;overflow-wrap:anywhere;font-weight:600;font-size:13px}
+.archivo .nombre span{display:block;font-weight:400;font-size:12px;color:var(--texto-2)}
+.zona{border:1.5px dashed var(--borde-fuerte);border-radius:var(--r-s);padding:16px;display:flex;gap:14px;align-items:center;background:var(--superficie-2);transition:border-color .12s,background .12s}
+.zona.sobre{border-color:var(--azul);background:var(--azul-claro)}
+.zona .circulo{width:40px;height:40px;border-radius:50%;background:var(--superficie);border:1px solid var(--borde);display:grid;place-items:center;color:var(--azul-osc);flex:none}
+.zona p{font-size:13px}
+.zona p span{display:block;font-size:12px;color:var(--texto-2)}
+.lateral-form{position:sticky;top:calc(env(safe-area-inset-top,0px) + 84px)}
+.lista-ok{list-style:none;padding:0;display:grid;gap:12px}
+.lista-ok li{display:flex;gap:10px;align-items:flex-start;font-size:12.5px;color:var(--texto-2)}
+.lista-ok .punto{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--borde-fuerte);display:grid;place-items:center;flex:none;margin-top:1px}
+.lista-ok .listo .punto{background:var(--ok-relleno);border-color:var(--ok-relleno);color:var(--sobre-navy)}
+.lista-ok .punto .ic{width:12px;height:12px;stroke-width:2.6}
+.lista-ok b{display:block;color:var(--texto);font-size:13px}
+.resumen-err ul{margin-top:6px;padding-left:18px;display:grid;gap:3px}
+.resumen-err .enlace{color:var(--error)}
+
+/* Detalle */
+dl{margin:0;display:grid;grid-template-columns:minmax(0,10.5rem) minmax(0,1fr);gap:12px 16px}
+dt{font-size:12.5px;font-weight:600;color:var(--texto-2)}
+dd{margin:0;overflow-wrap:anywhere}
+.huella{display:block;font-family:var(--mono);font-size:11.5px;color:var(--texto-2);overflow-wrap:anywhere;margin-top:6px}
+.linea{display:grid;list-style:none;padding:0}
+.linea li{position:relative;padding:0 0 18px 26px}
+.linea li:last-child{padding-bottom:0}
+.linea li::before{content:"";position:absolute;left:6px;top:8px;bottom:-8px;width:2px;background:var(--borde)}
+.linea li:last-child::before{display:none}
+.linea li::after{content:"";position:absolute;left:0;top:3px;width:14px;height:14px;border-radius:50%;background:var(--superficie);border:3px solid var(--azul)}
+.linea li.cierre::after{border-color:var(--ok-relleno)}
+.linea li.anulacion::after{border-color:var(--neutro-relleno)}
+.linea li.edicion::after{border-color:var(--oro)}
+.linea b{display:block;font-size:13px;color:var(--navy)}
+.linea .cuando{font-size:12px;color:var(--texto-2)}
+.linea p{font-size:13px;margin-top:2px}
+.titulo-detalle{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
+.titulo-detalle .folio{font-size:15px;padding:4px 10px}
+
+/* Modal y avisos flotantes */
+.modal-fondo{position:fixed;inset:0;background:var(--velo);backdrop-filter:blur(2px);z-index:40;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;
+  padding:max(32px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(32px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.modal{background:var(--superficie);border-radius:var(--r);box-shadow:var(--sombra-2);width:100%;max-width:540px;margin-block:auto;display:grid}
+.modal-cab{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 18px 0 22px}
+.modal-cab h2{font-size:17px}
+.modal form{display:grid;gap:16px;padding:14px 22px 22px}
+.modal .acciones{justify-content:flex-end;padding-top:4px}
+.lista-conf{padding-left:18px;display:grid;gap:5px}
+#toasts{position:fixed;z-index:70;right:max(20px,env(safe-area-inset-right,0px));bottom:max(20px,env(safe-area-inset-bottom,0px));left:max(20px,env(safe-area-inset-left,0px));display:grid;gap:8px;justify-items:end;pointer-events:none}
+.toast{display:flex;gap:10px;align-items:center;background:var(--navy);color:var(--sobre-navy);padding:12px 16px;border-radius:var(--r-s);box-shadow:var(--sombra-2);max-width:440px;font-size:13px;font-weight:500}
+.toast .ic{color:var(--oro)}
+
+@media (max-width:1240px){.fila-3{grid-template-columns:repeat(2,minmax(0,1fr))}.fila-3>:last-child{grid-column:1/-1}}
+@media (max-width:1080px){.panel-filtros{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.panel-filtros>:first-child,.panel-res{grid-column:1/-1}.panel-res{padding-bottom:0}.nueva{grid-template-columns:minmax(0,1fr)}.lateral-form{position:static}.fila-2-1{grid-template-columns:minmax(0,1fr)}.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:900px){
+  .acceso{grid-template-columns:minmax(0,1fr);grid-template-rows:auto 1fr}
+  .acceso-marca{padding:24px max(20px,env(safe-area-inset-right,0px)) 24px max(20px,env(safe-area-inset-left,0px));gap:18px}
+  .acceso-marca::after,.ficha,.acceso-pie{display:none}
+  .lema{font-size:22px;max-width:24ch}
+  .acceso-form{align-items:flex-start;padding:28px max(20px,env(safe-area-inset-right,0px)) 40px max(20px,env(safe-area-inset-left,0px))}
+  .shell{grid-template-columns:minmax(0,1fr);grid-template-rows:auto 1fr}
+  .lateral{position:static;height:auto;max-height:none;gap:10px;padding:12px max(16px,env(safe-area-inset-right,0px)) 12px max(16px,env(safe-area-inset-left,0px))}
+  .lateral-cab{padding:0}
+  .lateral-cab .btn-icono{display:inline-flex}
+  .lateral nav button[aria-current=page]::before{left:0}
+  .lateral-pie,.nav-etq{display:none}
+  .barra{padding:8px max(16px,env(safe-area-inset-right,0px)) 8px max(16px,env(safe-area-inset-left,0px));min-height:56px}
+  .usuario-txt{display:none}
+  .usuario-btn{padding:4px}
+  .contenido{padding:20px max(16px,env(safe-area-inset-right,0px)) 40px max(16px,env(safe-area-inset-left,0px))}
+  .dos,.fila-3,.panel-filtros{grid-template-columns:minmax(0,1fr)}
+  .fila-3>:last-child{grid-column:auto}
+  .tile-valor{font-size:30px}
+  .tile{padding:14px}
+  .indicadores{grid-template-columns:minmax(0,1fr)}
+  .indicador{grid-template-columns:auto minmax(0,1fr);justify-items:start;text-align:left;align-items:center;gap:14px}
+  .anillo{width:84px;height:84px}
+  .anillo svg{width:84px;height:84px}
+  .anillo .pc{font-size:17px}
+  .grafico{grid-template-rows:18px 170px auto}
+  .eje-x{font-size:10px}
+  h1{font-size:21px}
+  dl{grid-template-columns:minmax(0,1fr);gap:2px 0}
+  dd{margin-bottom:10px}
+  .pista{grid-template-columns:minmax(0,1fr)}
+  .pista li{padding:0 0 16px 30px}
+  .pista li:last-child{padding-bottom:0}
+  .pista li::before{top:8px;bottom:-8px;left:8px;right:auto;width:2px;height:auto}
+  .barra-fila{grid-template-columns:minmax(0,7.5rem) minmax(0,1fr) 1.6rem}
+  .sesiones button{grid-template-columns:auto minmax(0,1fr) auto;gap:12px}
+  .sesiones .cuenta-reg{display:none}
+}
+@media (min-width:901px){.lateral nav[hidden]{display:grid!important}}
+@media (prefers-reduced-motion:no-preference){.toast,.modal,.usuario-menu{animation:entra .16s ease-out}
+  /* Gráficos del panel: cada marca crece o se encoge desde el valor que tenía antes del cambio de filtro */
+  .crece-h{animation:crece-h .45s cubic-bezier(.2,.7,.2,1)}
+  .crece-w{animation:crece-w .45s cubic-bezier(.2,.7,.2,1)}
+  .dona-seg{animation:arco-dona .5s cubic-bezier(.2,.7,.2,1)}
+  .a-valor{animation:arco-anillo .5s cubic-bezier(.2,.7,.2,1)}}
+@keyframes crece-h{from{height:var(--de,0%)}}
+@keyframes crece-w{from{width:var(--de,0%)}}
+@keyframes arco-dona{from{stroke-dasharray:var(--dl,0) 389.6;stroke-dashoffset:var(--do,0)}}
+@keyframes arco-anillo{from{stroke-dasharray:var(--dl,0) 276.5}}
+@media (prefers-reduced-motion:reduce){.giro{animation:none}}
+@keyframes entra{from{transform:translateY(6px);opacity:.3}to{transform:none;opacity:1}}
+</style>
+
+<div id="app"></div>
+<div id="modal-raiz"></div>
+<div id="toasts" role="status" aria-live="polite"></div>
+<div id="tip" hidden></div>
+<input type="file" id="selector-archivo" hidden>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- Utilidades ---------- */
+const p2 = n => String(n).padStart(2, '0');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const isoDe = d => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+const hoyISO = () => isoDe(new Date());
+// Las fechas sin hora se manejan como texto AAAA-MM-DD y nunca como Date local, para que no se corran un día.
+const f = iso => iso ? iso.split('-').reverse().join('-') : '—';
+const fh = ts => { const d = new Date(ts); return `${p2(d.getDate())}-${p2(d.getMonth() + 1)}-${d.getFullYear()} ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
+const hora = ts => { const d = new Date(ts); return `${p2(d.getHours())}:${p2(d.getMinutes())}`; };
+const dias = (a, b) => { const u = s => { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d); }; return Math.round((u(b) - u(a)) / 86400000); };
+const tam = b => b >= 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
+const uid = () => 'x' + Math.random().toString(36).slice(2, 10);
+const sha = () => Array.from({ length: 64 }, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join('');
+const plural = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`;
+const iniciales = n => n.split(' ').slice(0, 2).map(x => x[0]).join('').toUpperCase();
+const MB20 = 20 * 1048576;
+
+/* ---------- Iconos ---------- */
+const IC = {
+  panel: '<rect x="3.5" y="3.5" width="7" height="8" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="5" rx="1.5"/><rect x="13.5" y="11.5" width="7" height="9" rx="1.5"/><rect x="3.5" y="14.5" width="7" height="6" rx="1.5"/>',
+  nueva: '<rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M12 8v8M8 12h8"/>',
+  registros: '<path d="M8.5 6.5H20M8.5 12H20M8.5 17.5H20"/><path d="M4.2 6.5h.1M4.2 12h.1M4.2 17.5h.1" stroke-width="2.6"/>',
+  mallas: '<path d="M12 3.5 3.5 8l8.5 4.5L20.5 8 12 3.5Z"/><path d="m3.5 12 8.5 4.5 8.5-4.5"/><path d="m3.5 16 8.5 4.5 8.5-4.5"/>',
+  buscar: '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>',
+  salir: '<path d="M14 4.5h3.5a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H14"/><path d="M10.5 8 6.5 12l4 4M6.5 12h9"/>',
+  archivo: '<path d="M13.5 3.5h-6a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V8.5l-5-5Z"/><path d="M13.5 3.5v5h5"/>',
+  subir: '<path d="M12 15.5V5M7.5 9 12 4.5 16.5 9"/><path d="M4.5 15.5v2a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-2"/>',
+  descargar: '<path d="M12 4.5V15M7.5 11 12 15.5 16.5 11"/><path d="M4.5 16v1.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V16"/>',
+  check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  alerta: '<path d="M12 4 2.8 19.5h18.4L12 4Z"/><path d="M12 10v4.5M12 17.2v.1"/>',
+  error: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.8v5M12 16v.1"/>',
+  info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8v.1"/>',
+  ojo: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.8"/>',
+  ojoNo: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.8"/><path d="M4 4l16 16"/>',
+  mas: '<path d="M12 5v14M5 12h14"/>',
+  x: '<path d="M6 6l12 12M18 6 6 18"/>',
+  der: '<path d="m9.5 6 6 6-6 6"/>',
+  abajo: '<path d="m6 9.5 6 6 6-6"/>',
+  menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  editar: '<path d="M4.5 19.5h3.6L19 8.6a2 2 0 0 0 0-2.8l-.8-.8a2 2 0 0 0-2.8 0L4.5 15.9v3.6Z"/><path d="m13.5 7 3.5 3.5"/>',
+  anular: '<circle cx="12" cy="12" r="8.5"/><path d="m6.2 6.2 11.6 11.6"/>',
+  candado: '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>',
+  reloj: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  tabla: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5v10"/>',
+};
+const ic = (n, extra = '') => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"${extra}>${IC[n]}</svg>`;
+const logo = t => `<svg width="${t}" height="${t}" viewBox="0 0 36 36" aria-hidden="true"><rect width="36" height="36" rx="9" fill="#CFB47C"/><path d="M9 24.5h5.5l4-9 4 4.5 4.5-9" fill="none" stroke="#102B42" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9" cy="24.5" r="2.5" fill="#102B42"/><circle cx="27" cy="11" r="2.5" fill="#102B42"/></svg>`;
+
+/* ---------- Catálogos ---------- */
+const SECTORES = [
+  { id: 'tec', nombre: 'Tecnologías' }, { id: 'ing', nombre: 'Ingeniería' },
+  { id: 'adm', nombre: 'Administración y Comercio' }, { id: 'sal', nombre: 'Salud' },
+];
+const CARRERAS = [
+  { id: 'inf', sector: 'tec', nombre: 'Ingeniería en Informática', asignaturas: ['Programación Orientada a Objetos', 'Bases de Datos', 'Big Data', 'Hacking Ético', 'Gestión de Proyectos'], modulos: ['Desarrollo de software', 'Infraestructura y seguridad'] },
+  { id: 'apr', sector: 'tec', nombre: 'Analista Programador', asignaturas: ['Fundamentos de Programación', 'Desarrollo Web', 'Bases de Datos'], modulos: ['Programación', 'Aplicaciones web'] },
+  { id: 'cib', sector: 'tec', nombre: 'Técnico en Ciberseguridad', asignaturas: ['Redes y Conectividad', 'Seguridad en Sistemas Operativos', 'Gestión de Incidentes'], modulos: ['Redes', 'Operaciones de seguridad'] },
+  { id: 'ind', sector: 'ing', nombre: 'Ingeniería Industrial', asignaturas: ['Gestión de Operaciones', 'Investigación de Operaciones', 'Control de Calidad'], modulos: ['Operaciones', 'Gestión'] },
+  { id: 'ele', sector: 'ing', nombre: 'Técnico en Electricidad Industrial', asignaturas: ['Instalaciones Eléctricas', 'Automatización y PLC', 'Máquinas Eléctricas'], modulos: ['Instalaciones', 'Automatización'] },
+  { id: 'iae', sector: 'adm', nombre: 'Ingeniería en Administración de Empresas', asignaturas: ['Contabilidad de Costos', 'Marketing Digital', 'Gestión de Personas'], modulos: ['Finanzas', 'Gestión comercial'] },
+  { id: 'con', sector: 'adm', nombre: 'Contador Auditor', asignaturas: ['Auditoría Tributaria', 'Normas IFRS', 'Contabilidad Financiera'], modulos: ['Tributación', 'Auditoría'] },
+  { id: 'log', sector: 'adm', nombre: 'Técnico en Logística', asignaturas: ['Gestión de Bodegas', 'Comercio Exterior', 'Planificación de la Demanda'], modulos: ['Almacenamiento', 'Distribución'] },
+  { id: 'enf', sector: 'sal', nombre: 'Técnico en Enfermería', asignaturas: ['Enfermería Médico-Quirúrgica', 'Farmacología', 'Simulación Clínica'], modulos: ['Atención clínica', 'Urgencias'] },
+  { id: 'lab', sector: 'sal', nombre: 'Técnico en Laboratorio Clínico', asignaturas: ['Hematología', 'Microbiología', 'Bioseguridad'], modulos: ['Análisis clínico', 'Gestión de muestras'] },
+];
+const CANALES = ['Reunión con docentes', 'Comité sectorial', 'Consejo empresarial', 'Focus group de la Red de Titulados', 'Correo electrónico', 'Otro'];
+const NIVELES = ['Recurso', 'Asignatura', 'Módulo', 'Malla', 'Perfil de ingreso', 'Perfil de egreso'];
+const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+const USUARIOS = [
+  { id: 'u1', nombre: 'Carla Fuentes Rojas', correo: 'carla.fuentes@instituto.example', rol: 'sectorial', rolNombre: 'Directora Sectorial', alcance: 'Tecnologías e Ingeniería', sectores: ['tec', 'ing'] },
+  { id: 'u2', nombre: 'Matías Sepúlveda Lagos', correo: 'matias.sepulveda@instituto.example', rol: 'carrera', rolNombre: 'Director de Carrera', alcance: 'Ingeniería en Informática', carreras: ['inf'] },
+  { id: 'u3', nombre: 'Paula Henríquez Soto', correo: 'paula.henriquez@instituto.example', rol: 'calidad', rolNombre: 'Aseguramiento de la Calidad', alcance: 'Consulta de todos los sectores' },
+];
+const CLAVE = 'Demo-2026';
+const carrera = id => CARRERAS.find(c => c.id === id);
+const sector = id => SECTORES.find(s => s.id === id);
+
+/* ---------- Datos de ejemplo ---------- */
+function semilla() {
+  const sesiones = [], registros = [];
+  const E = (nombre, mb) => ({ id: uid(), nombre, tamano: Math.round(mb * 1048576), sha: sha() });
+  const marca = (iso, masDias, h, m) => { const [a, me, d] = iso.split('-').map(Number); return new Date(a, me - 1, d + masDias, h, m).getTime(); };
+  const S = (id, canal, fecha, instancia, participantes, por, acta, fotos = []) => sesiones.push({ id, canal, fecha, instancia, participantes, creadoPor: por, acta: E(acta[0], acta[1]), fotos: fotos.map(x => E(x[0], x[1])) });
+  const R = (id, sesionId, car, nivel, objeto, descripcion, comprometida, fin) => {
+    const s = sesiones.find(x => x.id === sesionId);
+    const r = { id, sesionId, anio: Number(id.slice(2, 6)), carrera: car, nivel, objeto, descripcion, comprometida, estado: 'abierto', efectiva: null, evidenciaCierre: null, comentarioCierre: '', motivo: '',
+      historial: [{ ts: marca(s.fecha, 1, 10, 20), usuario: s.creadoPor, tipo: 'creacion', texto: 'Registro creado en estado abierto.' }] };
+    if (fin && fin.efectiva) {
+      r.estado = 'cerrado'; r.efectiva = fin.efectiva; r.evidenciaCierre = E(fin.archivo, fin.mb); r.comentarioCierre = fin.comentario || '';
+      r.historial.push({ ts: marca(fin.efectiva, 1, 9, 5), usuario: fin.por, tipo: 'cierre', texto: `Cerrado con fecha efectiva ${f(fin.efectiva)} y evidencia “${fin.archivo}”.` });
+    }
+    if (fin && fin.motivo) {
+      r.estado = 'anulado'; r.motivo = fin.motivo;
+      r.historial.push({ ts: marca(fin.fecha, 0, 16, 40), usuario: fin.por, tipo: 'anulacion', texto: `Anulado. Motivo: ${fin.motivo}` });
+    }
+    registros.push(r);
+  };
+  const carla = 'Carla Fuentes Rojas', matias = 'Matías Sepúlveda Lagos', andrea = 'Andrea Molina Tapia', rodrigo = 'Rodrigo Vera Pinto';
+
+  S('s9', 'Comité sectorial', '2025-04-16', 'Comité sectorial de Tecnologías, primera sesión 2025', ['Carla Fuentes (Directora Sectorial)', 'Dos representantes de empresas de software'], carla, ['Acta comité sectorial 16-04-2025.pdf', 1.4]);
+  R('R-2025-001', 's9', 'inf', 'Asignatura', 'Programación Orientada a Objetos', 'Las empresas piden reforzar pruebas unitarias dentro de la asignatura y no solo en el último semestre.', '2025-08-15', { efectiva: '2025-08-04', por: matias, archivo: 'Programa POO 2025-2.pdf', mb: 0.6 });
+  R('R-2025-002', 's9', 'cib', 'Asignatura', 'Redes y Conectividad', 'Actualizar los laboratorios de enrutamiento a equipos virtualizados.', '2025-08-01', { efectiva: '2025-07-28', por: carla, archivo: 'Programa Redes y Conectividad 2025-2.pdf', mb: 0.5 });
+  S('s10', 'Focus group de la Red de Titulados', '2025-09-10', 'Focus group de titulados 2023 y 2024', ['Andrea Molina (Directora Sectorial)', 'Ocho titulados de Salud y Administración'], andrea, ['Acta focus group titulados 10-09-2025.pdf', 2.1], [['Foto focus group 10-09-2025.jpg', 3.2]]);
+  R('R-2025-003', 's10', 'enf', 'Módulo', 'Urgencias', 'Los titulados señalan poca práctica en triage antes de la pasantía.', '2025-12-15', { efectiva: '2025-12-01', por: andrea, archivo: 'Módulo Urgencias actualizado.pdf', mb: 0.9 });
+  R('R-2025-004', 's10', 'iae', 'Asignatura', 'Contabilidad de Costos', 'Se pide incorporar casos con planillas de costeo usadas en pymes.', '2026-03-15', { efectiva: '2026-03-02', por: rodrigo, archivo: 'Programa Contabilidad de Costos 2026-1.pdf', mb: 0.7 });
+  S('s11', 'Reunión con docentes', '2025-11-12', 'Reunión de docentes de Ingeniería Industrial', ['Carla Fuentes (Directora Sectorial)', 'Cinco docentes de la carrera'], carla, ['Acta reunión docentes 12-11-2025.pdf', 0.8]);
+  R('R-2025-005', 's11', 'ind', 'Asignatura', 'Control de Calidad', 'Los docentes proponen reemplazar el software de control estadístico por una alternativa de uso libre.', '2026-01-31', { efectiva: '2026-01-20', por: carla, archivo: 'Programa Control de Calidad 2026-1.pdf', mb: 0.6 });
+
+  S('s1', 'Comité sectorial', '2026-03-18', 'Comité sectorial de Tecnologías, primera sesión 2026', ['Carla Fuentes (Directora Sectorial)', 'Matías Sepúlveda (Director de Carrera)', 'Representante de una empresa de software', 'Representante de una empresa de telecomunicaciones'], carla, ['Acta comité sectorial 18-03-2026.pdf', 1.8], [['Foto comité 18-03-2026.jpg', 2.4]]);
+  R('R-2026-001', 's1', 'inf', 'Asignatura', 'Big Data', 'Las empresas del comité piden incorporar procesamiento en la nube en reemplazo de parte del contenido de clúster local.', '2026-07-31', { efectiva: '2026-07-20', por: matias, archivo: 'Programa Big Data 2026-2.pdf', mb: 0.7, comentario: 'Vigente desde el segundo semestre.' });
+  R('R-2026-002', 's1', 'cib', 'Módulo', 'Operaciones de seguridad', 'Se solicita agregar prácticas de respuesta a incidentes con herramientas de monitoreo.', '2026-08-14', { efectiva: '2026-08-25', por: carla, archivo: 'Módulo Operaciones de seguridad v2.pdf', mb: 1.1 });
+  R('R-2026-003', 's1', 'apr', 'Recurso', 'Desarrollo Web · Laboratorio de computación', 'Los equipos del laboratorio no soportan las versiones actuales de las herramientas de desarrollo.', '2026-10-30');
+  S('s2', 'Reunión con docentes', '2026-04-09', 'Reunión de docentes de Ingeniería en Informática', ['Matías Sepúlveda (Director de Carrera)', 'Seis docentes de la carrera'], matias, ['Acta reunión docentes 09-04-2026.pdf', 0.9]);
+  R('R-2026-004', 's2', 'inf', 'Asignatura', 'Hacking Ético', 'Los docentes proponen separar la evaluación práctica en dos entregas para dar retroalimentación intermedia.', '2026-06-30', { efectiva: '2026-06-22', por: matias, archivo: 'Programa Hacking Ético 2026-2.pdf', mb: 0.5 });
+  S('s3', 'Consejo empresarial', '2026-05-14', 'Consejo empresarial de Ingeniería', ['Carla Fuentes (Directora Sectorial)', 'Tres gerentes de operaciones de empresas colaboradoras'], carla, ['Acta consejo empresarial 14-05-2026.pdf', 2.6], [['Foto consejo 14-05-2026.jpg', 2.9]]);
+  R('R-2026-005', 's3', 'ind', 'Perfil de egreso', 'Perfil de egreso de Ingeniería Industrial', 'El consejo observa que el perfil no menciona analítica de datos aplicada a operaciones.', '2026-12-18');
+  R('R-2026-006', 's3', 'ele', 'Asignatura', 'Automatización y PLC', 'Actualizar el equipamiento de referencia a controladores de la gama vigente en la industria.', '2026-11-30');
+  S('s4', 'Focus group de la Red de Titulados', '2026-06-03', 'Focus group de titulados de Salud', ['Andrea Molina (Directora Sectorial)', 'Siete titulados de 2024 y 2025'], andrea, ['Acta focus group Salud 03-06-2026.pdf', 1.7]);
+  R('R-2026-007', 's4', 'enf', 'Asignatura', 'Simulación Clínica', 'Los titulados señalan que las horas de simulación fueron insuficientes antes de la práctica.', '2026-09-30', { efectiva: '2026-09-12', por: andrea, archivo: 'Programa Simulación Clínica 2026-2.pdf', mb: 0.8 });
+  R('R-2026-008', 's4', 'lab', 'Recurso', 'Bioseguridad · Guías de laboratorio', 'Las guías no reflejan la norma vigente de manejo de residuos.', '2026-08-14', { motivo: 'La observación ya estaba resuelta con la actualización de guías de marzo; se ingresó por error.', fecha: '2026-06-18', por: andrea });
+  S('s5', 'Correo electrónico', '2026-08-21', 'Correo de una empresa colaboradora de auditoría', ['Rodrigo Vera (Director de Carrera)', 'Socia de una firma de auditoría'], rodrigo, ['Correo empresa auditoría 21-08-2026.pdf', 0.3]);
+  R('R-2026-009', 's5', 'con', 'Asignatura', 'Normas IFRS', 'La empresa informa cambios normativos de este año que no están en el programa.', '2026-12-11');
+  S('s6', 'Comité sectorial', '2026-09-24', 'Comité sectorial de Tecnologías, segunda sesión 2026', ['Carla Fuentes (Directora Sectorial)', 'Matías Sepúlveda (Director de Carrera)', 'Dos representantes de empresas de datos'], carla, ['Acta comité sectorial 24-09-2026.pdf', 2.0], [['Foto comité 24-09-2026.jpg', 2.2]]);
+  R('R-2026-010', 's6', 'inf', 'Malla', 'Malla 2024', 'Se acuerda adelantar Bases de Datos al segundo semestre para que anteceda a Big Data.', '2027-03-01');
+  R('R-2026-011', 's6', 'apr', 'Asignatura', 'Bases de Datos', 'Incorporar bases de datos no relacionales en la última unidad.', '2026-12-18');
+  S('s7', 'Reunión con docentes', '2026-10-22', 'Reunión de docentes de Ingeniería en Informática', ['Matías Sepúlveda (Director de Carrera)', 'Cinco docentes de la carrera'], matias, ['Acta reunión docentes 22-10-2026.pdf', 0.7]);
+  R('R-2026-012', 's7', 'inf', 'Asignatura', 'Gestión de Proyectos', 'Los docentes piden que la evaluación final use la misma metodología del proyecto de título.', '2026-11-06');
+  S('s8', 'Consejo empresarial', '2026-11-05', 'Consejo empresarial de Administración y Comercio', ['Rodrigo Vera (Director de Carrera)', 'Cuatro representantes de empresas de retail y logística'], rodrigo, ['Acta consejo empresarial 05-11-2026.pdf', 1.9]);
+  R('R-2026-013', 's8', 'iae', 'Asignatura', 'Marketing Digital', 'Las empresas piden incluir medición de campañas con herramientas de analítica web.', '2027-01-15');
+  R('R-2026-014', 's8', 'log', 'Perfil de egreso', 'Perfil de egreso de Técnico en Logística', 'El consejo solicita que el perfil declare manejo de sistemas de gestión de bodegas.', '2027-03-31');
+
+  const M = (car, anio, vigente, por) => ({ id: uid(), carrera: car, anio, vigente, archivo: E(`Malla ${carrera(car).nombre} ${anio}.pdf`, 0.4), subidoPor: por, ts: marca(vigente, -20, 11, 0) });
+  const mallas = [M('inf', 2021, '2021-03-01', carla), M('inf', 2024, '2024-03-01', matias), M('apr', 2023, '2023-03-01', carla), M('cib', 2025, '2025-03-01', carla),
+    M('ind', 2022, '2022-03-01', carla), M('ele', 2023, '2023-03-01', carla), M('iae', 2022, '2022-03-01', rodrigo), M('con', 2024, '2024-03-01', rodrigo), M('enf', 2024, '2024-03-01', andrea), M('lab', 2023, '2023-03-01', andrea)];
+  return { sesiones, registros, mallas, contador: { 2025: 5, 2026: 14 } };
+}
+
+/* ---------- Estado ---------- */
+const CLAVE_LOCAL = 'proto-perfil-egreso-v3';
+function leerLocal() { try { const t = localStorage.getItem(CLAVE_LOCAL); return t ? JSON.parse(t) : null; } catch { return null; } }
+function guardarLocal() { try { localStorage.setItem(CLAVE_LOCAL, JSON.stringify({ datos, borrador: estado.borrador })); } catch { /* sin almacenamiento: sigue en memoria */ } }
+const previo = leerLocal();
+let datos = previo && previo.datos && previo.datos.registros ? previo.datos : semilla();
+const filtrosVacios = () => ({ anio: 'todos', sector: '', carrera: '', canal: '', nivel: '', estado: '', q: '' });
+const loginVacio = () => ({ correo: '', clave: '', errores: {}, aviso: null, cargando: false, verClave: false, olvido: false });
+const estado = {
+  vista: 'login', usuario: null, expirada: false, volverA: null, _foco: null, menuUsuario: false, menuNav: false, busqueda: '',
+  login: loginVacio(), intentos: {}, bloqueos: {},
+  anioPanel: '2026', panel: { sector: '', carrera: '' }, filtros: filtrosVacios(), pagina: 1, detalleId: null, mallasCarrera: 'inf',
+  borrador: previo && previo.borrador ? previo.borrador : null, erroresForm: null, exito: null, guardando: false, modal: null,
+};
+// Filtros del panel: son parte del estado de la aplicación y se recuerdan en este navegador entre visitas
+const CLAVE_PANEL = 'proto-perfil-egreso-panel';
+function leerPanel() {
+  try { const p = JSON.parse(localStorage.getItem(CLAVE_PANEL) || 'null') || {}, c = carrera(p.carrera);
+    return { anio: typeof p.anio === 'string' ? p.anio : '', sector: c ? c.sector : sector(p.sector) ? p.sector : '', carrera: c ? c.id : '' };
+  } catch { return { anio: '', sector: '', carrera: '' }; }
+}
+function guardarPanel() { try { localStorage.setItem(CLAVE_PANEL, JSON.stringify({ anio: estado.anioPanel, sector: estado.panel.sector, carrera: estado.panel.carrera })); } catch { /* sin almacenamiento: sigue en memoria */ } }
+{ const p = leerPanel(); estado.panel = { sector: p.sector, carrera: p.carrera }; if (p.anio) estado.anioPanel = p.anio; }
+const appEl = document.getElementById('app'), modalEl = document.getElementById('modal-raiz'), tipEl = document.getElementById('tip'), selector = document.getElementById('selector-archivo');
+let ultimaActividad = Date.now();
+const INACTIVIDAD = 15 * 60000;
+
+/* ---------- Permisos ---------- */
+const puedeCrear = u => u.rol !== 'calidad';
+const carrerasDe = u => u.rol === 'sectorial' ? CARRERAS.filter(c => u.sectores.includes(c.sector)).map(c => c.id) : u.rol === 'carrera' ? u.carreras : [];
+const puedeModificar = (u, idCarrera) => carrerasDe(u).includes(idCarrera);
+const motivoConsulta = (u, idCarrera, que) => u.rol === 'calidad' ? `Tu perfil es de consulta: puedes revisar y descargar ${que}, pero no modificar.`
+  : `${carrera(idCarrera).nombre} está fuera de tu alcance (${u.alcance}). Puedes consultar ${que}, pero no modificar.`;
+
+/* ---------- Consultas ---------- */
+const sesionDe = r => datos.sesiones.find(s => s.id === r.sesionId);
+const anioDe = r => sesionDe(r).fecha.slice(0, 4);
+const vencido = r => r.estado === 'abierto' && r.comprometida < hoyISO();
+const anios = () => [...new Set(datos.registros.map(anioDe))].sort().reverse();
+function filtrar() {
+  const F = estado.filtros, q = F.q.trim().toLowerCase();
+  return datos.registros.filter(r => {
+    const s = sesionDe(r), c = carrera(r.carrera);
+    if (F.anio !== 'todos' && anioDe(r) !== F.anio) return false;
+    if (F.sector && c.sector !== F.sector) return false;
+    if (F.carrera && r.carrera !== F.carrera) return false;
+    if (F.canal && s.canal !== F.canal) return false;
+    if (F.nivel && r.nivel !== F.nivel) return false;
+    if (F.estado === 'vencido' ? !vencido(r) : F.estado && r.estado !== F.estado) return false;
+    if (q && !(r.id + ' ' + r.descripcion + ' ' + r.objeto + ' ' + c.nombre + ' ' + s.instancia).toLowerCase().includes(q)) return false;
+    return true;
+  }).sort((a, b) => sesionDe(b).fecha.localeCompare(sesionDe(a).fecha) || b.id.localeCompare(a.id));
+}
+
+/* ---------- Piezas de interfaz ---------- */
+const opciones = (lista, valor, vacio) => (vacio != null ? `<option value="">${esc(vacio)}</option>` : '') +
+  lista.map(o => { const [v, t] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(v)}"${String(v) === String(valor) ? ' selected' : ''}>${esc(t)}</option>`; }).join('');
+const NOMBRE_ESTADO = { abierto: 'Abierto', cerrado: 'Cerrado', anulado: 'Anulado' };
+const pill = r => `<span class="pill pill-${r.estado}"><i></i>${NOMBRE_ESTADO[r.estado]}</span>` + (vencido(r) ? ` <span class="pill pill-vencido">Vencido</span>` : '');
+const errDe = (errs, id) => errs && errs[id] ? `<span class="err" id="${id}-err">${esc(errs[id])}</span>` : '';
+const inv = (errs, id) => errs && errs[id] ? ` aria-invalid="true" aria-describedby="${id}-err"` : '';
+const ICONO_AVISO = { error: 'error', alerta: 'alerta', info: 'info', ok: 'check', neutro: 'info' };
+const aviso = (tipo, titulo, texto, attrs = '') => `<div class="aviso aviso-${tipo}" ${attrs}>${ic(ICONO_AVISO[tipo])}<div>${titulo ? `<b>${titulo}</b>` : ''}${texto ? `<span>${texto}</span>` : ''}</div></div>`;
+const archivoFila = (a, quitar) => `<div class="archivo">${ic('archivo')}<span class="nombre">${esc(a.nombre)}<span class="num">${tam(a.tamano)}</span></span>${quitar
+  ? `<button type="button" class="btn btn-icono" data-accion="${quitar}" data-id="${a.id}" aria-label="Quitar ${esc(a.nombre)}">${ic('x')}</button>`
+  : `<button type="button" class="btn btn-icono" data-accion="descargar" data-nombre="${esc(a.nombre)}" aria-label="Descargar ${esc(a.nombre)}">${ic('descargar')}</button>`}</div>`;
+const zona = (destino, id, titulo, detalle, errs) => `<div class="zona" data-soltar="${destino}"><span class="circulo">${ic('subir')}</span><p>${titulo} <button type="button" class="enlace" id="${id}" data-accion="archivo-elegir" data-destino="${destino}"${inv(errs, id)}>elige un archivo</button><span>${detalle}</span></p></div>`;
+function toast(texto) {
+  const t = document.createElement('div'); t.className = 'toast'; t.innerHTML = ic('check') + `<span>${esc(texto)}</span>`;
+  document.getElementById('toasts').appendChild(t); setTimeout(() => t.remove(), 4600);
+}
+
+/* ---------- Acceso ---------- */
+const bloqueado = c => estado.bloqueos[c] && estado.bloqueos[c] > Date.now();
+function faltan(c) { const s = Math.max(0, Math.ceil((estado.bloqueos[c] - Date.now()) / 1000)); return `${p2(Math.floor(s / 60))}:${p2(s % 60)}`; }
+function vistaLogin() {
+  const L = estado.login, a = L.aviso; let av = '';
+  if (a && a.tipo === 'error') av = aviso('error', 'Correo o contraseña incorrectos', a.restantes <= 2 ? `Te ${a.restantes === 1 ? 'queda 1 intento' : 'quedan 2 intentos'} antes de que la cuenta se bloquee por 15 minutos.` : 'Revisa que el correo esté completo y que no tengas activadas las mayúsculas.', 'role="alert"');
+  if (a && a.tipo === 'bloqueo') av = aviso('alerta', 'Cuenta bloqueada por intentos fallidos', `Podrás intentar de nuevo a las ${hora(estado.bloqueos[a.correo])}, en <span class="num" id="cuenta-atras">${faltan(a.correo)}</span>. Si no fuiste tú, avisa al administrador del sistema.`, 'role="alert"');
+  if (a && a.tipo === 'expirada') av = aviso('info', 'Tu sesión expiró por inactividad', `Inicia sesión de nuevo para continuar${estado.borrador ? '. El borrador de la sesión que estabas registrando se conservó' : ''}.`, 'role="status"');
+  if (a && a.tipo === 'salida') av = aviso('neutro', 'Cerraste sesión', 'Para volver a entrar, ingresa tu correo y tu contraseña.', 'role="status"');
+  return `<div class="acceso">
+    <section class="acceso-marca">
+      <div class="marca">${logo(40)}<div><b>Perfil de Egreso</b><span>Plataforma de validación</span></div></div>
+      <div>
+        <p class="lema">Cada cambio curricular, trazado <em>del acta a la evidencia</em></p>
+        <p class="sub">Registra las sesiones con docentes, empresas y titulados, los cambios comprometidos en cada carrera y el cierre de cada uno con su respaldo.</p>
+      </div>
+      <div class="ficha" aria-hidden="true">
+        <div class="ficha-cab"><span class="folio">R-2026-012</span><span class="pill pill-abierto"><i></i>Abierto</span></div>
+        <div class="ficha-titulo"><b>Ingeniería en Informática</b><span>Asignatura · Gestión de Proyectos</span></div>
+        <ol class="pista pista-v">
+          <li class="hecho sig"><b>Sesión</b><span class="det">22-10-2026 · Reunión con docentes</span></li>
+          <li class="hecho"><b>Registro</b><span class="det">23-10-2026 · con el acta como origen</span></li>
+          <li><b>Compromiso</b><span class="det">Fecha acordada para el cambio</span></li>
+          <li><b>Cierre</b><span class="det">Fecha efectiva y evidencia</span></li>
+        </ol>
+      </div>
+      <p class="acceso-pie">Versión 1.0 · Prototipo</p>
+    </section>
+    <section class="acceso-form"><div class="acceso-caja">
+      <div><h1>Inicia sesión</h1><p class="suave" style="margin-top:6px">Ingresa con tu correo institucional.</p></div>
+      ${av}
+      <form data-envio="login-enviar" novalidate>
+        <div class="campo"><label for="login-correo">Correo institucional</label>
+          <input type="email" id="login-correo" data-campo="login.correo" value="${esc(L.correo)}" autocomplete="username" placeholder="nombre.apellido@instituto.example"${inv(L.errores, 'login-correo')}>
+          ${errDe(L.errores, 'login-correo')}</div>
+        <div class="campo"><label for="login-clave">Contraseña</label>
+          <div class="clave"><input type="${L.verClave ? 'text' : 'password'}" id="login-clave" data-campo="login.clave" value="${esc(L.clave)}" autocomplete="current-password"${inv(L.errores, 'login-clave')}>
+            <button type="button" class="btn btn-icono" data-accion="login-ver" aria-label="${L.verClave ? 'Ocultar contraseña' : 'Mostrar contraseña'}" aria-pressed="${L.verClave}">${ic(L.verClave ? 'ojoNo' : 'ojo')}</button></div>
+          <span class="ayuda" id="mayusculas" hidden>Bloq Mayús está activado.</span>
+          ${errDe(L.errores, 'login-clave')}</div>
+        <button class="btn btn-pri btn-ancho" type="submit" id="login-boton"${L.cargando ? ' disabled' : ''}>${L.cargando ? '<span class="giro"></span>Verificando' : 'Iniciar sesión'}</button>
+        <div><button type="button" class="enlace mini" data-accion="login-olvido" aria-expanded="${L.olvido}">¿Olvidaste tu contraseña?</button></div>
+        ${L.olvido ? aviso('neutro', '', 'La contraseña la restablece el administrador del sistema. Escríbele desde tu correo institucional y te enviará una clave temporal.') : ''}
+      </form>
+      <p class="nota-acceso">${ic('candado')}<span>Acceso para personal autorizado. Tras cinco intentos fallidos, la cuenta se bloquea por 15 minutos.</span></p>
+    </div></section>
+  </div>`;
+}
+function enviarLogin() {
+  const L = estado.login; if (L.cargando) return;
+  L.errores = {}; L.aviso = null; L.olvido = false;
+  const correo = L.correo.trim().toLowerCase();
+  if (!correo) L.errores['login-correo'] = 'Escribe tu correo institucional.';
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) L.errores['login-correo'] = 'El correo no está completo. Debe tener la forma nombre@dominio.';
+  if (!L.clave) L.errores['login-clave'] = 'Escribe tu contraseña.';
+  if (Object.keys(L.errores).length) { estado._foco = Object.keys(L.errores)[0]; return pintar(); }
+  if (bloqueado(correo)) { L.aviso = { tipo: 'bloqueo', correo }; L.clave = ''; return pintar(); }
+  L.cargando = true; pintar();
+  setTimeout(() => {
+    L.cargando = false;
+    const u = USUARIOS.find(x => x.correo === correo);
+    if (u && L.clave === CLAVE) { delete estado.intentos[correo]; return iniciarSesion(u); }
+    // El mensaje es el mismo exista o no la cuenta, para no revelar qué correos están registrados.
+    const n = (estado.intentos[correo] || 0) + 1; estado.intentos[correo] = n; L.clave = '';
+    if (n >= 5) { estado.bloqueos[correo] = Date.now() + 15 * 60000; estado.intentos[correo] = 0; L.aviso = { tipo: 'bloqueo', correo }; }
+    else L.aviso = { tipo: 'error', restantes: 5 - n };
+    estado._foco = 'login-clave'; pintar();
+  }, 700);
+}
+function iniciarSesion(u) {
+  estado.usuario = u; estado.expirada = false; estado.modal = null; estado.menuUsuario = false; estado.menuNav = false; estado.login = loginVacio(); ultimaActividad = Date.now();
+  const destino = estado.volverA && (estado.volverA !== 'nueva' || puedeCrear(u)) ? estado.volverA : 'panel';
+  estado.volverA = null; estado.vista = destino;
+  // Un borrador hecho con otro perfil no conserva carreras fuera del alcance del perfil actual.
+  if (estado.borrador) estado.borrador.registros.forEach(r => { if (r.carrera ? !puedeModificar(u, r.carrera) : r.sector && !carrerasDe(u).some(id => carrera(id).sector === r.sector)) Object.assign(r, registroVacio(u), { descripcion: r.descripcion, comprometida: r.comprometida }); });
+  if (destino === 'detalle' && !datos.registros.some(r => r.id === estado.detalleId)) estado.vista = 'panel';
+  pintar(); window.scrollTo({ top: 0 });
+  toast(`Sesión iniciada como ${u.rolNombre}.`);
+}
+function salir(tipo) {
+  if (tipo === 'expirada') estado.volverA = estado.vista;
+  estado.usuario = null; estado.expirada = false; estado.modal = null; estado.vista = 'login'; memoPanel = {}; estado.erroresForm = null; estado.menuUsuario = false;
+  estado.login = loginVacio(); estado.login.aviso = { tipo }; estado._foco = 'login-correo'; pintar(); window.scrollTo({ top: 0 });
+}
+
+/* ---------- Estructura con sesión ---------- */
+function vistaShell() {
+  const u = estado.usuario, activa = estado.vista === 'detalle' ? 'registros' : estado.vista;
+  const nav = [['panel', 'Panel'], ...(puedeCrear(u) ? [['nueva', 'Nueva sesión']] : []), ['registros', 'Registros'], ['mallas', 'Mallas']];
+  const cuerpo = { panel: vistaPanel, nueva: vistaNueva, registros: vistaRegistros, detalle: vistaDetalle, mallas: vistaMallas }[estado.vista]();
+  return `<div class="shell">
+    <aside class="lateral">
+      <div class="lateral-cab"><div class="marca">${logo(34)}<div><b>Perfil de Egreso</b><span>Plataforma de validación</span></div></div>
+        <button type="button" class="btn btn-icono" data-accion="menu-nav" aria-expanded="${estado.menuNav}" aria-label="Menú">${ic(estado.menuNav ? 'x' : 'menu')}</button></div>
+      <nav aria-label="Secciones"${estado.menuNav ? '' : ' hidden'}><span class="nav-etq">Gestión curricular</span>
+        ${nav.map(([v, t]) => `<button type="button" data-accion="ir" data-vista="${v}"${v === activa ? ' aria-current="page"' : ''}>${ic(v)}${t}</button>`).join('')}</nav>
+      <p class="lateral-pie">Versión 1.0 · Prototipo</p>
+    </aside>
+    <div class="principal">
+      <header class="barra">
+        <form class="buscador" data-envio="buscar" role="search">${ic('buscar')}<input type="search" id="buscar-global" data-campo="busqueda" value="${esc(estado.busqueda)}" placeholder="Buscar por N° de registro, asignatura o texto" aria-label="Buscar registros"></form>
+        <div class="usuario"><button type="button" class="usuario-btn" data-accion="menu-usuario" aria-expanded="${estado.menuUsuario}" aria-haspopup="true" aria-label="Cuenta de ${esc(u.nombre)}">
+            <span class="avatar">${iniciales(u.nombre)}</span><span class="usuario-txt"><b>${esc(u.nombre)}</b><span>${esc(u.rolNombre)}</span></span>${ic('abajo')}</button>
+          ${estado.menuUsuario ? `<div class="usuario-menu"><dl><dt>Cuenta</dt><dd><b>${esc(u.nombre)}</b><br><span class="suave mini">${esc(u.correo)}</span></dd><dt>Perfil</dt><dd>${esc(u.rolNombre)}</dd><dt>Alcance</dt><dd style="margin:0">${esc(u.alcance)}</dd></dl>
+            <button type="button" class="btn btn-sec btn-ancho" data-accion="salir">${ic('salir')}Cerrar sesión</button></div>` : ''}</div>
+      </header>
+      <main class="contenido">${cuerpo}</main>
+    </div>
+  </div>`;
+}
+
+/* ---------- Panel ---------- */
+const ultimoMes = A => A === String(new Date().getFullYear()) ? new Date().getMonth() + 1 : 12;
+const mesDe = r => Number(sesionDe(r).fecha.slice(5, 7));
+// Cada marca del panel recuerda el último valor que dibujó. Al cambiar un filtro, la animación parte de ese valor y no de cero.
+let memoPanel = {};
+// Línea de tendencia de 12 posiciones; si el año está en curso, termina en el mes actual.
+function chispa(vals, cls) {
+  const max = Math.max(1, ...vals), n = vals.length, X = i => i / 11 * 100, Y = v => 36 - v / max * 30;
+  const linea = 'M' + vals.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' L');
+  return `<span class="chispa ${cls}"><svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true"><path class="ch-area" d="${linea} L${X(n - 1).toFixed(1)},40 L0,40 Z"/><path class="ch-linea" d="${linea}" vector-effect="non-scaling-stroke"/></svg><i class="ch-punto" style="left:${X(n - 1)}%;top:${Y(vals[n - 1]) / 40 * 100}%"></i></span>`;
+}
+// desde: porcentaje dibujado la vez anterior
+function anillo(parte, todo, cls, desde) {
+  const R = 44, C = 2 * Math.PI * R, p = todo ? parte / todo : 0, pc = Math.round(p * 100);
+  return `<span class="anillo ${cls}"><svg viewBox="0 0 104 104" width="104" height="104" aria-hidden="true"><circle class="a-pista" cx="52" cy="52" r="${R}"/>${p > 0 ? `<circle class="a-valor" cx="52" cy="52" r="${R}" stroke-dasharray="${(C * p).toFixed(1)} ${C.toFixed(1)}" style="--dl:${(C * desde / 100).toFixed(1)}" transform="rotate(-90 52 52)"/>` : ''}</svg><span class="pc"${todo ? ` data-cuenta="${pc}" data-desde="${desde}" data-sufijo=" %"` : ''}>${todo ? pc + ' %' : '—'}</span></span>`;
+}
+function dona(partes, total, de) {
+  const R = 62, C = 2 * Math.PI * R, vivas = partes.filter(p => p[1]), gap = vivas.length > 1 ? 3 : 0; let ac = 0;
+  const arcos = vivas.map(([e, v]) => {
+    const largo = +Math.max(1, v / total * C - gap).toFixed(1), giro = +(-ac).toFixed(1); ac += v / total * C;
+    return `<circle class="dona-seg t-${e}" cx="84" cy="84" r="${R}" stroke-dasharray="${largo} ${C.toFixed(1)}" stroke-dashoffset="${giro}" style="--dl:${de('d:l:' + e, largo)};--do:${de('d:o:' + e, giro, giro)}" data-tip="${NOMBRE_ESTADO[e]}s: ${v} de ${total}, ${Math.round(v / total * 100)} %"/>`;
+  }).join('');
+  return `<div class="dona"><svg viewBox="0 0 168 168" width="168" height="168" aria-hidden="true">${total ? '' : `<circle class="dona-pista" cx="84" cy="84" r="${R}"/>`}<g transform="rotate(-90 84 84)">${arcos}</g></svg><div class="dona-centro"><b data-cuenta="${total}" data-desde="${de('d:total', total)}">${total}</b><span>${total === 1 ? 'ajuste' : 'ajustes'}</span></div></div>`;
+}
+// Las cifras cuentan desde el valor anterior hasta el nuevo
+function animarCifras() {
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  document.querySelectorAll('[data-desde]').forEach(el => {
+    const a = Number(el.dataset.cuenta), desde = Number(el.dataset.desde), sufijo = el.dataset.sufijo || '';
+    if (a === desde) return;
+    const t0 = performance.now(), dur = 420;
+    const paso = t => { if (!el.isConnected) return; const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3); el.textContent = Math.round(desde + (a - desde) * e) + sufijo; if (k < 1) requestAnimationFrame(paso); };
+    el.textContent = desde + sufijo; requestAnimationFrame(paso);
+  });
+}
+function vistaPanel() {
+  const A = estado.anioPanel, P = estado.panel, hasta = ultimoMes(A), antes = memoPanel, ahora = {};
+  // de(clave, valor): anota el valor que se dibuja ahora y devuelve el anterior, que es el punto de partida de la animación
+  const de = (k, v, inicial = 0) => { ahora[k] = v; return k in antes ? antes[k] : inicial; };
+  const enFiltro = r => (!P.sector || carrera(r.carrera).sector === P.sector) && (!P.carrera || r.carrera === P.carrera);
+  const base = datos.registros.filter(enFiltro), regs = base.filter(r => anioDe(r) === A), total = regs.length;
+  const con = e => regs.filter(r => r.estado === e), n = { abierto: con('abierto').length, cerrado: con('cerrado').length, anulado: con('anulado').length };
+  const venc = regs.filter(vencido).length, vigentes = total - n.anulado, enPlazo = con('cerrado').filter(r => r.efectiva <= r.comprometida).length, conAjuste = new Set(regs.map(r => r.carrera)).size;
+  const alcance = CARRERAS.filter(c => (!P.sector || c.sector === P.sector) && (!P.carrera || c.id === P.carrera));
+  const pct = (a, b) => b ? Math.round(a / b * 100) : 0, ESTADOS = ['cerrado', 'abierto', 'anulado'];
+  const irA = (filtro, valor) => `data-accion="panel-filtrar" data-filtro="${filtro}" data-valor="${esc(valor)}"`;
+  const serieDe = a => { const rs = base.filter(r => anioDe(r) === a); return Array.from({ length: ultimoMes(a) }, (_, i) => rs.filter(r => mesDe(r) === i + 1).length); };
+  const previo = String(Number(A) - 1), hayPrevio = anios().includes(previo), dif = total - base.filter(r => anioDe(r) === previo).length;
+  const partesTxt = c => ESTADOS.filter(e => c[e]).map(e => `${c[e]} ${NOMBRE_ESTADO[e].toLowerCase()}${c[e] === 1 ? '' : 's'}`).join(', ');
+  const leyenda = `<div class="leyendas">${ESTADOS.map(e => `<span class="ley"><i class="seg-${e}"></i>${NOMBRE_ESTADO[e]}s</span>`).join('')}</div>`;
+  const donde = P.carrera ? carrera(P.carrera).nombre : P.sector ? `el sector ${sector(P.sector).nombre}` : 'todos los sectores';
+  const sinDatos = `<p class="suave">Sin ajustes en ${A} para ${esc(donde)}.</p>`;
+
+  // Filtros: año, sector y carrera. Cada cambio se guarda en el estado y repinta todos los gráficos.
+  const chips = [['sector', P.sector && sector(P.sector).nombre], ['carrera', P.carrera && carrera(P.carrera).nombre]].filter(c => c[1]);
+  const filtros = `<section class="tarjeta" aria-label="Filtros del panel"><div class="panel-filtros">
+      <div class="campo"><span class="etq" id="p-anio-etq">Año</span><div class="segmento" role="group" aria-labelledby="p-anio-etq">${anios().map(a => `<button type="button" id="p-anio-${a}" data-accion="panel-anio" data-anio="${a}" aria-pressed="${a === A}">${a}</button>`).join('')}</div></div>
+      <div class="campo"><label for="p-sector">Sector</label><select id="p-sector" data-campo="panel.sector" data-repintar>${opciones(SECTORES.map(s => [s.id, s.nombre]), P.sector, 'Todos los sectores')}</select></div>
+      <div class="campo"><label for="p-carrera">Carrera</label><select id="p-carrera" data-campo="panel.carrera" data-repintar>${opciones(CARRERAS.filter(c => !P.sector || c.sector === P.sector).map(c => [c.id, c.nombre]), P.carrera, P.sector ? 'Todas las del sector' : 'Todas las carreras')}</select></div>
+      <p class="panel-res" aria-live="polite"><b class="num">${total}</b> ${total === 1 ? 'ajuste' : 'ajustes'} en ${A}</p>
+    </div>
+    ${chips.length ? `<div class="chips">${chips.map(([k, t]) => `<span class="chip">${esc(t)}<button type="button" data-accion="panel-quitar" data-k="${k}" aria-label="Quitar el filtro ${esc(t)}">${ic('x')}</button></span>`).join('')}<button type="button" class="enlace mini" data-accion="panel-limpiar" style="margin-left:6px">Quitar filtros</button></div>` : ''}
+  </section>
+  ${total ? '' : aviso('info', `Sin ajustes en ${A} para ${esc(donde)}`, chips.length ? 'Los gráficos quedan en cero. Cambia el año o quita un filtro.' : 'Los gráficos quedan en cero. Elige otro año.')}`;
+
+  // Indicadores principales
+  const tile = (clave, cls, accion, icono, clsIc, etq, valor, sub, clsSub, pie) => `<${accion ? 'button type="button" ' + accion : 'div'} class="tile ${cls}"><span class="tile-cab"><span class="tile-etq">${etq}</span><span class="tile-ic ${clsIc}">${ic(icono)}</span></span><span class="tile-fila"><span class="tile-valor" data-cuenta="${valor}" data-desde="${de('t:' + clave, valor)}">${valor}</span><span class="tile-sub ${clsSub}">${sub}</span></span>${pie}</${accion ? 'button' : 'div'}>`;
+  const medidor = (clave, cls, w) => `<span class="medidor ${cls}"><span class="crece-w" style="--de:${de('t:m:' + clave, w)}%;width:${w}%"></span></span>`;
+  const tiles = `<div class="tiles">
+    ${tile('total', 'tile-navy', irA('anio', A), 'registros', '', `Ajustes registrados en ${A}`, total, hayPrevio ? `${dif >= 0 ? '+' : '−'}${Math.abs(dif)} respecto de ${previo}` : 'Primer año con ajustes', '', chispa(serieDe(A), 'oro'))}
+    ${tile('abiertos', '', irA('estado', 'abierto'), 'reloj', '', 'Ajustes abiertos', n.abierto, venc ? plural(venc, 'vencido', 'vencidos') : 'Ninguno vencido', venc ? 'aten' : '', `<span class="metro">${n.abierto ? `${n.abierto - venc ? `<span class="seg-abierto" style="flex:${n.abierto - venc}"></span>` : ''}${venc ? `<span class="seg-vencido" style="flex:${venc}"></span>` : ''}` : '<span class="vacio-m"></span>'}</span>`)}
+    ${tile('cerrados', '', irA('estado', 'cerrado'), 'check', 'verde', 'Ajustes cerrados con evidencia', n.cerrado, `${pct(n.cerrado, vigentes)} % de los vigentes`, '', medidor('cerrados', 'ok', pct(n.cerrado, vigentes)))}
+    ${tile('carreras', '', '', 'mallas', 'dorado', 'Carreras con ajustes', conAjuste, `de ${plural(alcance.length, 'carrera', 'carreras')}`, '', medidor('carreras', 'oro', pct(conAjuste, alcance.length)))}
+  </div>`;
+
+  // Columnas apiladas por mes de la sesión
+  const meses = MESES.map((m, i) => { const rs = regs.filter(r => mesDe(r) === i + 1), c = { cerrado: 0, abierto: 0, anulado: 0 }; rs.forEach(r => c[r.estado]++); return { m, t: rs.length, c, futuro: i + 1 > hasta }; });
+  const maxMes = Math.max(1, ...meses.map(x => x.t)), paso = maxMes <= 5 ? 1 : maxMes <= 10 ? 2 : maxMes <= 25 ? 5 : 10, tope = Math.max(paso * 3, Math.ceil(maxMes / paso) * paso);
+  const ticks = Array.from({ length: tope / paso + 1 }, (_, i) => i * paso), iMax = meses.findIndex(x => x.t === maxMes);
+  const columnas = `<div class="grafico" role="img" aria-label="Ajustes por mes de la sesión en ${A} para ${esc(donde)}: ${meses.map(x => x.m + ' ' + x.t).join(', ')}">
+    <div class="eje-y">${ticks.map(t => `<span style="bottom:${t / tope * 100}%">${t}</span>`).join('')}</div>
+    <div class="plot">${ticks.filter(t => t).map(t => `<i class="linea-g" style="bottom:${t / tope * 100}%"></i>`).join('')}
+      ${meses.map((x, i) => { const alto = +(x.t / tope * 100).toFixed(2); return `<span class="col" tabindex="0" data-tip="${x.m} ${A}: ${x.futuro ? 'aún no llega' : plural(x.t, 'ajuste', 'ajustes') + (x.t ? ` (${partesTxt(x.c)})` : '')}">${x.t && i === iMax ? `<b class="tope">${x.t}</b>` : ''}<span class="pila crece-h" style="--de:${de('m:' + i, alto)}%;height:${alto}%">${ESTADOS.filter(e => x.c[e]).map(e => `<span class="seg-${e}" style="flex:${x.c[e]}"></span>`).join('')}</span></span>`; }).join('')}
+    </div>
+    <div class="eje-x">${meses.map(x => `<span${x.futuro ? ' class="futuro"' : ''}>${x.m}</span>`).join('')}</div></div>`;
+
+  // Barras horizontales de un solo tono
+  const barras = (titulo, clave, cuenta, orden, filtro, nombre = k => k) => {
+    const m = new Map(); regs.forEach(r => { const k = cuenta(r); m.set(k, (m.get(k) || 0) + 1); });
+    const filas = orden.filter(k => m.get(k)), max = Math.max(1, ...filas.map(k => m.get(k)));
+    return `<section class="tarjeta"><h2>${titulo}</h2>${filas.length ? `<div class="barras">${filas.map(k => { const c = m.get(k), ancho = +(c / max * 100).toFixed(2);
+      return `<button type="button" class="barra-fila" ${irA(filtro, k)} data-tip="${esc(nombre(k))}: ${plural(c, 'ajuste', 'ajustes')}, ${pct(c, total)} % de ${A}. Clic para verlos en el listado."><span class="n">${esc(nombre(k))}</span><span class="pista-b"><span class="rel crece-w" style="--de:${de('b:' + clave + ':' + k, ancho)}%;width:${ancho}%"></span></span><span class="c">${c}</span></button>`; }).join('')}</div>` : sinDatos}</section>`;
+  };
+  // Barras apiladas por estado: por sector, o por carrera cuando ya hay un sector elegido
+  const grupos = (P.sector ? CARRERAS.filter(c => c.sector === P.sector).map(c => ({ id: c.id, nombre: c.nombre, rs: regs.filter(r => r.carrera === c.id) }))
+    : SECTORES.map(s => ({ id: s.id, nombre: s.nombre, rs: regs.filter(r => carrera(r.carrera).sector === s.id) })))
+    .map(g => { const c = { cerrado: 0, abierto: 0, anulado: 0 }; g.rs.forEach(r => c[r.estado]++); return { ...g, t: g.rs.length, c }; }).filter(g => g.t);
+  const maxGrupo = Math.max(1, ...grupos.map(g => g.t)), filtroGrupo = P.sector ? 'carrera' : 'sector';
+  const ses = datos.sesiones.filter(s => s.fecha.slice(0, 4) === A && regs.some(r => r.sesionId === s.id)).sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, 5);
+
+  const html = `<div class="cab"><div><h1>Panel</h1><p class="suave">Ajustes curriculares registrados a partir de la retroalimentación, según la fecha de cada sesión.</p></div></div>
+    ${filtros}
+    ${tiles}
+    <div class="fila-2-1">
+      <section class="tarjeta"><div class="tarjeta-cab"><h2>Ajustes por mes</h2>${leyenda}</div>${columnas}</section>
+      <section class="tarjeta"><h2>Estados de ajustes</h2>
+        <div class="dona-caja">${dona(ESTADOS.map(e => [e, n[e]]), total, de)}
+          <div class="ley-lista">${ESTADOS.map(e => `<button type="button" class="ley-fila" ${irA('estado', e)}><i class="seg-${e}"></i><span>${NOMBRE_ESTADO[e]}s</span><b>${n[e]}</b><span class="pc">${pct(n[e], total)} %</span></button>`).join('')}</div></div>
+      </section>
+    </div>
+    <div class="fila-2-1">
+      <section class="tarjeta"><h2>Cumplimiento de cierres y plazos</h2>
+        <div class="indicadores">
+          <div class="indicador">${anillo(n.cerrado, vigentes, 'verde', de('a:cierre', pct(n.cerrado, vigentes)))}<div><b>Cierre con evidencia</b><span class="det">${vigentes ? `${n.cerrado} de ${plural(vigentes, 'ajuste vigente', 'ajustes vigentes')}` : 'Sin ajustes vigentes'}</span></div></div>
+          <div class="indicador">${anillo(enPlazo, n.cerrado, 'azul', de('a:plazo', pct(enPlazo, n.cerrado)))}<div><b>Cierres en plazo</b><span class="det">${n.cerrado ? `${enPlazo} de ${plural(n.cerrado, 'cierre', 'cierres')} en la fecha comprometida o antes` : 'Aún no hay cierres'}</span></div></div>
+          <div class="indicador">${anillo(n.abierto - venc, n.abierto, 'marino', de('a:aldia', pct(n.abierto - venc, n.abierto)))}<div><b>Ajustes abiertos al día</b><span class="det">${n.abierto ? `${n.abierto - venc} de ${plural(n.abierto, 'abierto', 'abiertos')} sin vencer` : 'No quedan ajustes abiertos'}</span></div></div>
+        </div>
+      </section>
+      <section class="tarjeta"><h2>Ajustes por año</h2>
+        <div class="anios">${anios().map(a => { const s = serieDe(a), t = s.reduce((x, y) => x + y, 0); return `<button type="button" class="anio-card" data-accion="panel-anio" data-anio="${a}" aria-pressed="${a === A}" data-tip="${a}: ${plural(t, 'ajuste', 'ajustes')} para ${esc(donde)}. La línea muestra los ajustes por mes de la sesión."><span><span class="a">${a}</span><span class="v"><span data-cuenta="${t}" data-desde="${de('y:' + a, t)}">${t}</span> <small>${t === 1 ? 'ajuste' : 'ajustes'}</small></span></span>${chispa(s, a === A ? 'acento' : '')}</button>`; }).join('')}</div>
+      </section>
+    </div>
+    <div class="fila-3">
+      ${barras('Ajustes por canal de origen', 'canal', r => sesionDe(r).canal, CANALES, 'canal')}
+      ${barras('Ajustes por nivel de impacto', 'nivel', r => r.nivel, NIVELES, 'nivel')}
+      <section class="tarjeta"><div class="tarjeta-cab"><h2>${P.sector ? 'Ajustes por carrera' : 'Ajustes por sector'}</h2>${leyenda}</div>
+        ${grupos.length ? `<div class="barras">${grupos.map(g => { const ancho = +(g.t / maxGrupo * 100).toFixed(2); return `<button type="button" class="barra-fila" ${irA(filtroGrupo, g.id)} data-tip="${esc(g.nombre)}: ${plural(g.t, 'ajuste', 'ajustes')} (${partesTxt(g.c)}). Clic para verlos en el listado."><span class="n">${esc(g.nombre)}</span><span class="pista-b" style="background:none"><span class="apil crece-w" style="--de:${de('g:' + g.id, ancho)}%;width:${ancho}%">${ESTADOS.filter(e => g.c[e]).map(e => `<span class="seg-${e}" style="flex:${g.c[e]}"></span>`).join('')}</span></span><span class="c">${g.t}</span></button>`; }).join('')}</div>` : sinDatos}
+      </section>
+    </div>
+    <section class="tarjeta"><div class="tarjeta-cab"><h2>Últimas sesiones de retroalimentación</h2><button type="button" class="enlace mini" ${irA('anio', A)}>Ver estos ajustes en el listado</button></div>
+      ${ses.length ? `<div class="sesiones">${ses.map(s => { const rs = regs.filter(r => r.sesionId === s.id), [, m, d] = s.fecha.split('-');
+        return `<button type="button" data-accion="ver" data-id="${rs[0] ? rs[0].id : ''}"><span class="dia"><b class="num">${d}</b><span>${MESES[Number(m) - 1]}</span></span><span class="doble"><b>${esc(s.instancia)}</b><span>${esc(s.canal)} · registrada por ${esc(s.creadoPor)}</span></span><span class="mini suave cuenta-reg">${plural(rs.length, 'ajuste', 'ajustes')}</span>${ic('der')}</button>`; }).join('')}</div>` : `<p class="suave">Sin sesiones en ${A} para ${esc(donde)}.</p>`}
+    </section>`;
+  memoPanel = ahora;
+  return html;
+}
+
+/* ---------- Nueva sesión ---------- */
+const registroVacio = u => { const cs = carrerasDe(u); return { sector: cs.length === 1 ? carrera(cs[0]).sector : '', carrera: cs.length === 1 ? cs[0] : '', nivel: '', objeto: '', recurso: '', descripcion: '', comprometida: '' }; };
+const borradorVacio = u => ({ canal: '', fecha: '', instancia: '', participantes: '', acta: null, fotos: [], errorArchivo: '', registros: [registroVacio(u)], guardado: null });
+function resumenNueva() {
+  const b = estado.borrador, okDatos = b.canal && b.fecha && b.instancia.trim().length >= 5 && b.participantes.trim();
+  const okRegs = b.registros.every(r => r.carrera && r.nivel && (r.nivel.startsWith('Perfil') || r.objeto) && r.descripcion.trim().length >= 20 && r.comprometida);
+  const item = (ok, titulo, detalle) => `<li class="${ok ? 'listo' : ''}"><span class="punto">${ok ? ic('check') : ''}</span><span><b>${titulo}</b>${detalle}</span></li>`;
+  return `<h2>Resumen</h2><ul class="lista-ok">
+      ${item(okDatos, 'Datos de la sesión', b.canal || b.fecha ? `${esc(b.canal || 'Sin canal')} · ${b.fecha ? f(b.fecha) : 'sin fecha'}` : 'Por completar')}
+      ${item(!!b.acta, 'Acta', b.acta ? esc(b.acta.nombre) + (b.fotos.length ? ` y ${plural(b.fotos.length, 'fotografía', 'fotografías')}` : '') : 'Falta adjuntar el PDF')}
+      ${item(okRegs, plural(b.registros.length, 'registro', 'registros'), b.registros.map((r, i) => { const c = carrera(r.carrera); return `${i + 1}. ${c ? esc(c.nombre) : 'Sin carrera'}${r.nivel ? ' · ' + esc(r.nivel) : ''}`; }).join('<br>'))}
+    </ul>
+    <button type="submit" class="btn btn-pri btn-ancho" id="b-enviar"${estado.guardando ? ' disabled' : ''}>${estado.guardando ? '<span class="giro"></span>Guardando' : 'Guardar sesión'}</button>
+    <button type="button" class="btn btn-fantasma btn-ancho" data-accion="nueva-descartar">Descartar borrador</button>
+    <p class="mini suave" id="b-guardado" style="text-align:center">${b.guardado ? `Borrador guardado a las ${hora(b.guardado)}` : 'El borrador se guarda mientras escribes'}</p>`;
+}
+function vistaNueva() {
+  const u = estado.usuario;
+  if (estado.exito) {
+    const s = datos.sesiones.find(x => x.id === estado.exito.sesionId), rs = datos.registros.filter(r => r.sesionId === s.id);
+    return `<div class="cab"><div><h1>Sesión registrada</h1><p class="suave">${esc(s.instancia)} · ${f(s.fecha)}</p></div></div>
+      ${aviso('ok', `Se guardó la sesión con ${plural(rs.length, 'registro', 'registros')}`, 'Cada registro quedó abierto con su número. El acta respalda a todos como evidencia de origen.', 'role="status"')}
+      <div class="tabla-scroll"><table style="min-width:600px"><thead><tr><th>N°</th><th>Carrera</th><th>Nivel y objeto</th><th>Comprometido</th></tr></thead><tbody>
+        ${rs.map(r => `<tr class="fila" data-accion="ver" data-id="${r.id}"><td><button type="button" class="folio" data-accion="ver" data-id="${r.id}">${r.id}</button></td><td>${esc(carrera(r.carrera).nombre)}</td><td class="doble"><b>${esc(r.nivel)}</b><span>${esc(r.objeto)}</span></td><td class="num">${f(r.comprometida)}</td></tr>`).join('')}
+      </tbody></table></div>
+      <div class="acciones"><button type="button" class="btn btn-pri" data-accion="nueva-otra">${ic('mas')}Registrar otra sesión</button><button type="button" class="btn btn-sec" data-accion="ir" data-vista="registros">Ir al listado</button></div>`;
+  }
+  if (!estado.borrador) estado.borrador = borradorVacio(u);
+  const b = estado.borrador, E = estado.erroresForm, permitidas = carrerasDe(u), sectoresOk = SECTORES.filter(s => permitidas.some(id => carrera(id).sector === s.id)), unaSola = permitidas.length === 1;
+  const reg = (r, i) => {
+    const c = carrera(r.carrera), id = `r${i}`, cs = CARRERAS.filter(x => x.sector === r.sector && permitidas.includes(x.id)); let objeto;
+    if (!r.nivel || !c) objeto = `<div class="campo"><span class="etq">Objeto afectado</span><p class="ayuda" id="${id}-objeto" tabindex="-1" style="padding-top:10px">Elige primero la carrera y el nivel de impacto.</p>${errDe(E, `${id}-objeto`)}</div>`;
+    else if (r.nivel.startsWith('Perfil')) objeto = `<div class="campo"><span class="etq">Objeto afectado</span><p id="${id}-objeto" style="padding-top:9px">${esc(r.nivel)} de ${esc(c.nombre)}</p></div>`;
+    else {
+      const esMalla = r.nivel === 'Malla', lista = esMalla ? datos.mallas.filter(m => m.carrera === c.id).sort((x, y) => y.anio - x.anio).map(m => `Malla ${m.anio}`) : r.nivel === 'Módulo' ? c.modulos : c.asignaturas;
+      const etq = esMalla ? 'Versión de malla' : r.nivel === 'Módulo' ? 'Módulo' : 'Asignatura';
+      objeto = `<div class="campo"><label for="${id}-objeto">${etq}</label>${lista.length ? `<select id="${id}-objeto" data-campo="borrador.registros.${i}.objeto"${inv(E, `${id}-objeto`)}>${opciones(lista, r.objeto, 'Selecciona')}</select>` : `<p class="err" id="${id}-objeto" tabindex="-1">Esta carrera no tiene versiones de malla. Cárgala primero en Mallas.</p>`}${errDe(E, `${id}-objeto`)}</div>` +
+        (r.nivel === 'Recurso' ? `<div class="campo"><label for="${id}-recurso">Recurso afectado</label><input type="text" id="${id}-recurso" data-campo="borrador.registros.${i}.recurso" value="${esc(r.recurso)}" placeholder="Laboratorio, guía, software"${inv(E, `${id}-recurso`)}>${errDe(E, `${id}-recurso`)}</div>` : '');
+    }
+    return `<div class="reg"><div class="reg-cab"><h3>Registro ${i + 1}${c ? ' · ' + esc(c.nombre) : ''}</h3>${b.registros.length > 1 ? `<button type="button" class="btn btn-icono" data-accion="reg-quitar" data-i="${i}" aria-label="Quitar el registro ${i + 1}">${ic('x')}</button>` : ''}</div>
+      <div class="rejilla">
+        <div class="campo"><label for="${id}-sector">Sector</label><select id="${id}-sector" data-campo="borrador.registros.${i}.sector" data-repintar${unaSola ? ' disabled' : ''}${inv(E, `${id}-sector`)}>${opciones(sectoresOk.map(s => [s.id, s.nombre]), r.sector, 'Selecciona')}</select>${errDe(E, `${id}-sector`)}</div>
+        <div class="campo"><label for="${id}-carrera">Carrera</label><select id="${id}-carrera" data-campo="borrador.registros.${i}.carrera" data-repintar${unaSola || !r.sector ? ' disabled' : ''}${inv(E, `${id}-carrera`)}>${opciones(cs.map(x => [x.id, x.nombre]), r.carrera, r.sector ? 'Selecciona' : 'Elige primero el sector')}</select>${errDe(E, `${id}-carrera`)}</div>
+        <div class="campo"><label for="${id}-nivel">Nivel de impacto</label><select id="${id}-nivel" data-campo="borrador.registros.${i}.nivel" data-repintar${inv(E, `${id}-nivel`)}>${opciones(NIVELES, r.nivel, 'Selecciona')}</select>${errDe(E, `${id}-nivel`)}</div>
+        ${objeto}
+      </div>
+      <div class="campo"><label for="${id}-descripcion">Descripción de lo observado</label><textarea id="${id}-descripcion" data-campo="borrador.registros.${i}.descripcion" placeholder="Qué se pidió cambiar y por qué, tal como quedó en el acta"${inv(E, `${id}-descripcion`)}>${esc(r.descripcion)}</textarea>
+        <span class="ayuda"><span class="num" id="${id}-cuenta">${r.descripcion.trim().length}</span> caracteres. Mínimo 20.</span>${errDe(E, `${id}-descripcion`)}</div>
+      <div class="campo" style="max-width:240px"><label for="${id}-comprometida">Fecha comprometida</label><input type="date" id="${id}-comprometida" data-campo="borrador.registros.${i}.comprometida" value="${esc(r.comprometida)}"${b.fecha ? ` min="${b.fecha}"` : ''}${inv(E, `${id}-comprometida`)}>${errDe(E, `${id}-comprometida`)}</div>
+    </div>`;
+  };
+  const nErr = E ? Object.keys(E).length : 0;
+  return `<div class="cab"><div><h1>Nueva sesión</h1><p class="suave">Una sesión es la reunión o el correo de donde salen los cambios. Cada cambio es un registro con su carrera y su fecha comprometida.</p></div></div>
+    ${nErr ? `<div class="aviso aviso-error resumen-err" role="alert" tabindex="-1" id="resumen-err">${ic('error')}<div><b>No se pudo guardar. Revisa ${plural(nErr, 'campo', 'campos')}:</b><ul>${Object.entries(E).map(([id, m]) => `<li><button type="button" class="enlace" data-accion="foco" data-id="${id}">${esc(m)}</button></li>`).join('')}</ul></div></div>` : ''}
+    <form class="nueva" data-envio="nueva-enviar" novalidate>
+      <div class="columna">
+        <section class="tarjeta"><div class="tarjeta-titulo"><span class="paso-n">1</span><h2>Datos de la sesión</h2></div>
+          <div class="rejilla">
+            <div class="campo"><label for="b-canal">Canal</label><select id="b-canal" data-campo="borrador.canal"${inv(E, 'b-canal')}>${opciones(CANALES, b.canal, 'Selecciona')}</select>${errDe(E, 'b-canal')}</div>
+            <div class="campo"><label for="b-fecha">Fecha de la sesión</label><input type="date" id="b-fecha" data-campo="borrador.fecha" value="${esc(b.fecha)}" max="${hoyISO()}"${inv(E, 'b-fecha')}>${errDe(E, 'b-fecha')}</div>
+          </div>
+          <div class="campo"><label for="b-instancia">Nombre de la instancia</label><input type="text" id="b-instancia" data-campo="borrador.instancia" value="${esc(b.instancia)}" placeholder="Comité sectorial de Tecnologías, tercera sesión 2026"${inv(E, 'b-instancia')}>${errDe(E, 'b-instancia')}</div>
+          <div class="campo"><label for="b-participantes">Participantes</label><textarea id="b-participantes" data-campo="borrador.participantes" placeholder="Uno por línea, con su cargo o la empresa que representa"${inv(E, 'b-participantes')}>${esc(b.participantes)}</textarea>${errDe(E, 'b-participantes')}</div>
+        </section>
+        <section class="tarjeta"><div class="tarjeta-titulo"><span class="paso-n">2</span><h2>Evidencia de origen</h2></div>
+          <div class="campo"><span class="etq">Acta de la sesión</span>
+            ${b.acta ? `<div class="archivos">${archivoFila(b.acta, 'acta-quitar')}</div>` : zona('acta', 'b-acta', 'Arrastra el acta aquí o', 'PDF de hasta 20 MB. Respalda todos los registros de la sesión.', E)}
+            ${errDe(E, 'b-acta')}</div>
+          <div class="campo"><span class="etq">Fotografías <span class="suave" style="font-weight:400">(opcional)</span></span>
+            ${b.fotos.length ? `<div class="archivos">${b.fotos.map(a => archivoFila(a, 'foto-quitar')).join('')}</div>` : ''}
+            ${zona('foto', 'b-foto', 'Arrastra una fotografía o', 'JPG o PNG de hasta 20 MB cada una.')}</div>
+          ${b.errorArchivo ? aviso('error', 'No se adjuntó el archivo', esc(b.errorArchivo), 'role="alert"') : ''}
+        </section>
+        <section class="tarjeta"><div class="tarjeta-titulo"><span class="paso-n">3</span><h2>Registros</h2></div>
+          ${b.registros.map(reg).join('')}
+          <div><button type="button" class="btn btn-sec" data-accion="reg-agregar">${ic('mas')}Agregar otro registro</button></div>
+        </section>
+      </div>
+      <aside class="tarjeta lateral-form" id="resumen-nueva" aria-label="Resumen de la sesión">${resumenNueva()}</aside>
+    </form>`;
+}
+function objetoFinal(r) {
+  const c = carrera(r.carrera);
+  if (r.nivel.startsWith('Perfil')) return `${r.nivel} de ${c.nombre}`;
+  return r.nivel === 'Recurso' ? `${r.objeto} · ${r.recurso.trim()}` : r.objeto;
+}
+function validarBorrador(b) {
+  const e = {}, hoy = hoyISO();
+  if (!b.canal) e['b-canal'] = 'Selecciona el canal por el que llegó la retroalimentación.';
+  if (!b.fecha) e['b-fecha'] = 'Indica la fecha de la sesión.'; else if (b.fecha > hoy) e['b-fecha'] = 'La fecha de la sesión no puede ser posterior a hoy.';
+  if (b.instancia.trim().length < 5) e['b-instancia'] = 'Escribe el nombre de la instancia.';
+  if (!b.participantes.trim()) e['b-participantes'] = 'Anota al menos un participante.';
+  if (!b.acta) e['b-acta'] = 'Adjunta el acta en PDF: es la evidencia de origen de la sesión.';
+  const vistos = new Set();
+  b.registros.forEach((r, i) => {
+    const id = `r${i}`, n = `Registro ${i + 1}: `;
+    if (!r.sector) e[`${id}-sector`] = n + 'selecciona el sector.';
+    if (!r.carrera) e[`${id}-carrera`] = n + 'selecciona la carrera.';
+    if (!r.nivel) e[`${id}-nivel`] = n + 'selecciona el nivel de impacto.';
+    if (r.carrera && r.nivel && !r.nivel.startsWith('Perfil')) {
+      if (!r.objeto) e[`${id}-objeto`] = n + (r.nivel === 'Malla' ? 'selecciona la versión de malla.' : r.nivel === 'Módulo' ? 'selecciona el módulo.' : 'selecciona la asignatura.');
+      if (r.nivel === 'Recurso' && r.recurso.trim().length < 3) e[`${id}-recurso`] = n + 'indica qué recurso se ve afectado.';
+    }
+    if (r.descripcion.trim().length < 20) e[`${id}-descripcion`] = n + 'describe lo observado con al menos 20 caracteres.';
+    if (!r.comprometida) e[`${id}-comprometida`] = n + 'indica la fecha comprometida.';
+    else if (b.fecha && r.comprometida < b.fecha) e[`${id}-comprometida`] = n + 'la fecha comprometida no puede ser anterior a la sesión.';
+    if (r.carrera && r.nivel && (r.objeto || r.nivel.startsWith('Perfil'))) {
+      const k = [r.carrera, r.nivel, r.objeto, r.recurso.trim().toLowerCase()].join('|');
+      if (vistos.has(k) && !e[`${id}-objeto`]) e[`${id}-nivel`] = n + 'ya hay otro registro igual en esta sesión.';
+      vistos.add(k);
+    }
+  });
+  return e;
+}
+function guardarSesion() {
+  const b = estado.borrador, u = estado.usuario, anio = new Date().getFullYear(), ahora = Date.now(), sid = 's' + ahora;
+  datos.sesiones.push({ id: sid, canal: b.canal, fecha: b.fecha, instancia: b.instancia.trim(), participantes: b.participantes.split('\n').map(x => x.trim()).filter(Boolean), creadoPor: u.nombre, acta: b.acta, fotos: b.fotos });
+  b.registros.forEach(r => {
+    const n = datos.contador[anio] = (datos.contador[anio] || 0) + 1;
+    datos.registros.push({ id: `R-${anio}-${String(n).padStart(3, '0')}`, sesionId: sid, anio, carrera: r.carrera, nivel: r.nivel, objeto: objetoFinal(r), descripcion: r.descripcion.trim(), comprometida: r.comprometida,
+      estado: 'abierto', efectiva: null, evidenciaCierre: null, comentarioCierre: '', motivo: '', historial: [{ ts: ahora, usuario: u.nombre, tipo: 'creacion', texto: 'Registro creado en estado abierto.' }] });
+  });
+  estado.exito = { sesionId: sid }; estado.borrador = null; estado.erroresForm = null; guardarLocal();
+}
+
+/* ---------- Archivos ---------- */
+let destinoArchivo = null;
+function validarArchivo(nombre, tamano, destino) {
+  const ext = (nombre.split('.').pop() || '').toLowerCase(), esPdf = ext === 'pdf', esFoto = ['jpg', 'jpeg', 'png'].includes(ext);
+  if (destino === 'acta' && !esPdf) return `“${nombre}” no es un PDF. El acta debe adjuntarse en PDF.`;
+  if (destino === 'foto' && !esFoto) return `“${nombre}” no es JPG ni PNG.${ext === 'heic' || ext === 'heif' ? ' Las fotos HEIC del iPhone hay que convertirlas a JPG antes de subirlas.' : ''}`;
+  if (destino === 'cierre' && !esPdf && !esFoto) return `“${nombre}” no se puede usar como evidencia. Adjunta un PDF, JPG o PNG.`;
+  if (destino === 'malla' && !esPdf) return `“${nombre}” no es un PDF. La malla debe adjuntarse en PDF.`;
+  if (tamano > MB20) return `“${nombre}” pesa ${tam(tamano)} y el máximo es 20 MB. Reduce el archivo o divídelo.`;
+  return '';
+}
+function recibirArchivo(nombre, tamano, destino) {
+  const error = validarArchivo(nombre, tamano, destino), a = { id: uid(), nombre, tamano, sha: sha() };
+  if (destino === 'acta' || destino === 'foto') {
+    const b = estado.borrador; if (!b) return; b.errorArchivo = error;
+    if (!error) { if (destino === 'acta') { b.acta = a; if (estado.erroresForm) delete estado.erroresForm['b-acta']; } else b.fotos.push(a); marcarBorrador(); }
+  } else if (estado.modal) { estado.modal.errores.archivo = error; if (!error) estado.modal.campos.archivo = a; }
+  pintar();
+}
+selector.addEventListener('change', () => { const a = selector.files && selector.files[0]; if (a && destinoArchivo) recibirArchivo(a.name, a.size, destinoArchivo); selector.value = ''; });
+
+/* ---------- Registros ---------- */
+const POR_PAGINA = 10;
+function vistaRegistros() {
+  const F = estado.filtros, todos = filtrar(), paginas = Math.max(1, Math.ceil(todos.length / POR_PAGINA));
+  estado.pagina = Math.min(estado.pagina, paginas);
+  const filas = todos.slice((estado.pagina - 1) * POR_PAGINA, estado.pagina * POR_PAGINA);
+  const chips = [['anio', F.anio !== 'todos' && `Año ${F.anio}`], ['sector', F.sector && sector(F.sector).nombre], ['carrera', F.carrera && carrera(F.carrera).nombre], ['canal', F.canal], ['nivel', F.nivel],
+    ['estado', F.estado && (F.estado === 'vencido' ? 'Abierto y vencido' : NOMBRE_ESTADO[F.estado])], ['q', F.q.trim() && `“${F.q.trim()}”`]].filter(c => c[1]);
+  return `<div class="cab"><div><h1>Registros</h1><p class="suave">${plural(todos.length, 'registro', 'registros')}${chips.length ? ' con los filtros aplicados' : ' en total'}.</p></div><div class="acciones">
+      <button type="button" class="btn btn-sec" data-accion="exportar"${todos.length ? '' : ' disabled'}>${ic('tabla')}Exportar a Excel</button>
+      ${puedeCrear(estado.usuario) ? `<button type="button" class="btn btn-pri" data-accion="ir" data-vista="nueva">${ic('mas')}Nueva sesión</button>` : ''}</div></div>
+    <section class="tarjeta"><div class="filtros">
+      <div class="campo"><label for="f-anio">Año</label><select id="f-anio" data-campo="filtros.anio" data-repintar>${opciones([['todos', 'Todos'], ...anios()], F.anio)}</select></div>
+      <div class="campo"><label for="f-sector">Sector</label><select id="f-sector" data-campo="filtros.sector" data-repintar>${opciones(SECTORES.map(s => [s.id, s.nombre]), F.sector, 'Todos')}</select></div>
+      <div class="campo"><label for="f-carrera">Carrera</label><select id="f-carrera" data-campo="filtros.carrera" data-repintar>${opciones(CARRERAS.filter(c => !F.sector || c.sector === F.sector).map(c => [c.id, c.nombre]), F.carrera, 'Todas')}</select></div>
+      <div class="campo"><label for="f-canal">Canal</label><select id="f-canal" data-campo="filtros.canal" data-repintar>${opciones(CANALES, F.canal, 'Todos')}</select></div>
+      <div class="campo"><label for="f-nivel">Nivel de impacto</label><select id="f-nivel" data-campo="filtros.nivel" data-repintar>${opciones(NIVELES, F.nivel, 'Todos')}</select></div>
+      <div class="campo"><label for="f-estado">Estado</label><select id="f-estado" data-campo="filtros.estado" data-repintar>${opciones([['abierto', 'Abierto'], ['vencido', 'Abierto y vencido'], ['cerrado', 'Cerrado'], ['anulado', 'Anulado']], F.estado, 'Todos')}</select></div>
+    </div>
+    ${chips.length ? `<div class="chips">${chips.map(([k, t]) => `<span class="chip">${esc(t)}<button type="button" data-accion="filtro-quitar" data-k="${k}" aria-label="Quitar el filtro ${esc(t)}">${ic('x')}</button></span>`).join('')}<button type="button" class="enlace mini" data-accion="filtros-limpiar" style="margin-left:6px">Quitar todos</button></div>` : ''}
+    </section>
+    ${todos.length ? `<div class="tabla-scroll"><table><thead><tr><th>N°</th><th>Sesión</th><th>Carrera</th><th>Nivel y objeto</th><th>Canal</th><th>Comprometido</th><th>Estado</th></tr></thead><tbody>
+      ${filas.map(r => { const s = sesionDe(r); return `<tr class="fila" data-accion="ver" data-id="${r.id}"><td><button type="button" class="folio" data-accion="ver" data-id="${r.id}">${r.id}</button></td><td class="num">${f(s.fecha)}</td><td>${esc(carrera(r.carrera).nombre)}</td><td class="doble"><b>${esc(r.nivel)}</b><span>${esc(r.objeto)}</span></td><td>${esc(s.canal)}</td><td class="num">${f(r.comprometida)}</td><td>${pill(r)}</td></tr>`; }).join('')}
+      </tbody></table></div>
+      <div class="pie-tabla"><span class="suave mini">Mostrando ${(estado.pagina - 1) * POR_PAGINA + 1} a ${Math.min(estado.pagina * POR_PAGINA, todos.length)} de ${todos.length}</span>
+        ${paginas > 1 ? `<div class="paginas"><button type="button" data-accion="pagina" data-p="${estado.pagina - 1}"${estado.pagina <= 1 ? ' disabled' : ''} aria-label="Página anterior">${ic('der', ' style="transform:rotate(180deg)"')}</button>${Array.from({ length: paginas }, (_, i) => `<button type="button" data-accion="pagina" data-p="${i + 1}"${i + 1 === estado.pagina ? ' aria-current="page"' : ''}>${i + 1}</button>`).join('')}<button type="button" data-accion="pagina" data-p="${estado.pagina + 1}"${estado.pagina >= paginas ? ' disabled' : ''} aria-label="Página siguiente">${ic('der')}</button></div>` : ''}</div>`
+    : `<div class="tarjeta vacio"><span class="circulo">${ic('buscar')}</span><b>Ningún registro coincide</b><span>Prueba con otro año o quita algún filtro.</span><button type="button" class="btn btn-sec" data-accion="filtros-limpiar">Quitar todos los filtros</button></div>`}`;
+}
+
+/* ---------- Detalle ---------- */
+function pista(r) {
+  const s = sesionDe(r), hoy = hoyISO(), creado = isoDe(new Date(r.historial[0].ts)), anul = r.historial.find(h => h.tipo === 'anulacion');
+  let comp, fin;
+  if (r.estado === 'cerrado') { const d = dias(r.comprometida, r.efectiva); comp = ['hecho sig', d > 0 ? `cumplido con ${plural(d, 'día', 'días')} de atraso` : 'cumplido en plazo']; fin = ['ok', 'Cierre', f(r.efectiva), 'con evidencia']; }
+  else if (r.estado === 'anulado') { comp = ['', 'sin efecto por la anulación']; fin = ['neutro', 'Anulación', anul ? f(isoDe(new Date(anul.ts))) : '—', 'con motivo registrado']; }
+  else { const d = dias(hoy, r.comprometida); comp = d < 0 ? ['alerta', `vencido hace ${plural(-d, 'día', 'días')}`] : ['', d === 0 ? 'vence hoy' : `faltan ${plural(d, 'día', 'días')}`]; fin = ['', 'Cierre', 'Pendiente', 'requiere fecha efectiva y evidencia']; }
+  const paso = (cls, nombre, valor, det) => `<li class="${cls}"><span class="paso">${nombre}</span><b class="num">${valor}</b><span class="det">${esc(det)}</span></li>`;
+  return `<ol class="pista" aria-label="Trazabilidad del registro">
+    ${paso('hecho sig', 'Sesión', f(s.fecha), s.canal)}
+    ${paso('hecho' + (r.estado === 'cerrado' ? ' sig' : ''), 'Registro', f(creado), `ingresado por ${s.creadoPor}`)}
+    ${paso(comp[0], 'Compromiso', f(r.comprometida), comp[1])}
+    ${paso(fin[0], fin[1], fin[2], fin[3])}</ol>`;
+}
+function vistaDetalle() {
+  const r = datos.registros.find(x => x.id === estado.detalleId), u = estado.usuario;
+  if (!r) return `<div class="tarjeta vacio"><span class="circulo">${ic('buscar')}</span><b>No encontramos ese registro</b><button type="button" class="btn btn-sec" data-accion="ir" data-vista="registros">Volver al listado</button></div>`;
+  const s = sesionDe(r), c = carrera(r.carrera), hermanos = datos.registros.filter(x => x.sesionId === r.sesionId && x.id !== r.id), editable = r.estado === 'abierto' && puedeModificar(u, r.carrera);
+  const tit = { creacion: 'Creación', cierre: 'Cierre', anulacion: 'Anulación', edicion: 'Edición' };
+  const sello = r.estado === 'cerrado' ? `${ic('check')}Cerrado · ${f(r.efectiva)}` : r.estado === 'anulado' ? `${ic('anular')}Anulado` : 'Abierto';
+  return `<div class="miga"><button type="button" class="enlace" data-accion="ir" data-vista="registros">Registros</button>${ic('der')}<span class="num">${r.id}</span></div>
+    <div class="cab"><div class="titulo-detalle"><span class="folio">${r.id}</span><h1>${esc(c.nombre)}</h1><span class="sello sello-${r.estado}">${sello}</span>${vencido(r) ? '<span class="pill pill-vencido">Vencido</span>' : ''}</div>
+      ${editable ? `<div class="acciones"><button type="button" class="btn btn-fantasma" data-accion="modal-abrir" data-tipo="anular">${ic('anular')}Anular</button><button type="button" class="btn btn-sec" data-accion="modal-abrir" data-tipo="editar">${ic('editar')}Editar</button><button type="button" class="btn btn-pri" data-accion="modal-abrir" data-tipo="cerrar">${ic('check')}Cerrar con evidencia</button></div>` : ''}</div>
+    ${r.estado === 'abierto' && !editable ? aviso('neutro', 'Solo consulta', esc(motivoConsulta(u, r.carrera, 'este registro'))) : ''}
+    <section class="tarjeta">${pista(r)}</section>
+    <div class="dos">
+      <div class="columna">
+        <section class="tarjeta"><h2>Datos del registro</h2><dl>
+          <dt>Sector</dt><dd>${esc(sector(c.sector).nombre)}</dd><dt>Carrera</dt><dd>${esc(c.nombre)}</dd>
+          <dt>Nivel de impacto</dt><dd>${esc(r.nivel)}</dd><dt>Objeto afectado</dt><dd>${esc(r.objeto)}</dd>
+          <dt>Descripción</dt><dd>${esc(r.descripcion)}</dd>
+          ${r.estado === 'cerrado' ? `<dt>Evidencia de cierre</dt><dd><div class="archivos">${archivoFila(r.evidenciaCierre)}</div><span class="huella">SHA-256 ${r.evidenciaCierre.sha.slice(0, 24)}…</span></dd>${r.comentarioCierre ? `<dt>Comentario de cierre</dt><dd>${esc(r.comentarioCierre)}</dd>` : ''}` : ''}
+          ${r.estado === 'anulado' ? `<dt>Motivo de anulación</dt><dd>${esc(r.motivo)}</dd>` : ''}
+        </dl></section>
+        <section class="tarjeta"><h2>Sesión de origen</h2><dl>
+          <dt>Instancia</dt><dd>${esc(s.instancia)}</dd><dt>Canal</dt><dd>${esc(s.canal)}</dd><dt>Fecha</dt><dd class="num">${f(s.fecha)}</dd>
+          <dt>Participantes</dt><dd>${s.participantes.map(esc).join('<br>')}</dd>
+          <dt>Evidencia de origen</dt><dd><div class="archivos">${archivoFila(s.acta)}${s.fotos.map(a => archivoFila(a)).join('')}</div><span class="huella">SHA-256 del acta ${s.acta.sha.slice(0, 24)}…</span></dd>
+        </dl></section>
+      </div>
+      <div class="columna">
+        <section class="tarjeta"><h2>Historial</h2><ol class="linea">${[...r.historial].sort((a, b) => b.ts - a.ts).map(h => `<li class="${h.tipo}"><b>${tit[h.tipo]}</b><span class="cuando">${fh(h.ts)} · ${esc(h.usuario)}</span><p>${esc(h.texto)}</p></li>`).join('')}</ol></section>
+        <section class="tarjeta"><h2>Otros registros de la sesión</h2>
+          ${hermanos.length ? `<div class="sesiones">${hermanos.map(h => `<button type="button" data-accion="ver" data-id="${h.id}" style="grid-template-columns:auto minmax(0,1fr) auto"><span class="folio">${h.id}</span><span class="doble"><b>${esc(carrera(h.carrera).nombre)}</b><span>${esc(h.nivel)} · ${esc(h.objeto)}</span></span>${ic('der')}</button>`).join('')}</div>` : `<p class="suave">Esta sesión tiene un solo registro.</p>`}
+        </section>
+      </div>
+    </div>`;
+}
+
+/* ---------- Mallas ---------- */
+function vistaMallas() {
+  const id = estado.mallasCarrera, c = carrera(id), vs = datos.mallas.filter(m => m.carrera === id).sort((a, b) => b.anio - a.anio), puede = puedeModificar(estado.usuario, id);
+  return `<div class="cab"><div><h1>Mallas</h1><p class="suave">Versiones de malla por carrera. Un registro de nivel malla apunta a una de estas versiones.</p></div>
+      ${puede ? `<button type="button" class="btn btn-pri" data-accion="modal-abrir" data-tipo="malla">${ic('subir')}Subir versión</button>` : ''}</div>
+    <section class="tarjeta"><div class="campo" style="max-width:440px"><label for="m-carrera">Carrera</label><select id="m-carrera" data-campo="mallasCarrera" data-repintar>${SECTORES.map(s => `<optgroup label="${esc(s.nombre)}">${opciones(CARRERAS.filter(x => x.sector === s.id).map(x => [x.id, x.nombre]), id)}</optgroup>`).join('')}</select></div></section>
+    ${!puede ? aviso('neutro', 'Solo consulta', esc(motivoConsulta(estado.usuario, id, 'sus mallas'))) : ''}
+    ${vs.length ? `<div class="tabla-scroll"><table style="min-width:660px"><thead><tr><th>Versión</th><th>Vigente desde</th><th>Archivo</th><th>Subida por</th></tr></thead><tbody>
+      ${vs.map((m, i) => `<tr><td><b>Malla ${m.anio}</b>${i === 0 ? ' <span class="pill pill-abierto">Vigente</span>' : ''}</td><td class="num">${f(m.vigente)}</td><td style="min-width:260px">${archivoFila(m.archivo)}</td><td class="doble"><b style="font-weight:500">${esc(m.subidoPor)}</b><span class="num">${fh(m.ts)}</span></td></tr>`).join('')}
+      </tbody></table></div>` : `<div class="tarjeta vacio"><span class="circulo">${ic('mallas')}</span><b>${esc(c.nombre)} aún no tiene versiones de malla</b><span>Sin una versión cargada no se pueden crear registros de nivel malla para esta carrera.</span></div>`}`;
+}
+
+/* ---------- Modales ---------- */
+function abrirModal(tipo) {
+  const r = datos.registros.find(x => x.id === estado.detalleId);
+  const campos = tipo === 'cerrar' ? { efectiva: hoyISO(), archivo: null, comentario: '' } : tipo === 'anular' ? { motivo: '' }
+    : tipo === 'editar' ? { descripcion: r.descripcion, comprometida: r.comprometida } : tipo === 'malla' ? { anio: String(new Date().getFullYear()), vigente: '', archivo: null } : {};
+  estado.modal = { tipo, campos, errores: {} };
+  estado._foco = { cerrar: 'm-efectiva', anular: 'm-motivo', editar: 'm-descripcion', malla: 'm-anio', confirmar: 'm-confirmar', descartar: 'm-cancelar' }[tipo];
+  pintar();
+}
+function vistaModal() {
+  const M = estado.modal, C = M.campos, E = M.errores, r = datos.registros.find(x => x.id === estado.detalleId);
+  const e1 = k => E[k] ? `<span class="err">${esc(E[k])}</span>` : '', i1 = k => E[k] ? ' aria-invalid="true"' : '';
+  const adjunto = (etq, destino, detalle) => `<div class="campo"><span class="etq">${etq}</span>${C.archivo ? `<div class="archivos">${archivoFila(C.archivo, 'modal-archivo-quitar')}</div>` : zona(destino, 'm-archivo', 'Arrastra el archivo aquí o', detalle)}${e1('archivo')}</div>`;
+  const marco = (titulo, cuerpo, boton, clase = 'btn-pri') => `<div class="modal-fondo"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="m-titulo">
+    <div class="modal-cab"><h2 id="m-titulo">${titulo}</h2><button type="button" class="btn btn-icono" data-accion="modal-cerrar" aria-label="Cerrar ventana">${ic('x')}</button></div>
+    <form data-envio="modal-enviar" novalidate>${cuerpo}<div class="acciones"><button type="button" class="btn btn-sec" id="m-cancelar" data-accion="modal-cerrar">Cancelar</button><button type="submit" class="btn ${clase}" id="m-confirmar">${boton}</button></div></form></div></div>`;
+  if (M.tipo === 'cerrar') return marco(`Cerrar el registro ${r.id}`, `
+    <p class="suave">Indica cuándo se hizo efectivo el cambio y adjunta el documento que lo respalda: la malla publicada, el programa actualizado o la resolución.</p>
+    <div class="campo" style="max-width:240px"><label for="m-efectiva">Fecha efectiva del cambio</label><input type="date" id="m-efectiva" data-campo="modal.campos.efectiva" value="${esc(C.efectiva)}" min="${sesionDe(r).fecha}" max="${hoyISO()}"${i1('efectiva')}>${e1('efectiva')}</div>
+    ${adjunto('Evidencia de cierre', 'cierre', 'PDF, JPG o PNG de hasta 20 MB.')}
+    <div class="campo"><label for="m-comentario">Comentario <span class="suave" style="font-weight:400">(opcional)</span></label><textarea id="m-comentario" data-campo="modal.campos.comentario">${esc(C.comentario)}</textarea></div>
+    ${aviso('alerta', '', 'Un registro cerrado ya no se puede editar ni anular.')}`, 'Cerrar registro');
+  if (M.tipo === 'anular') return marco(`Anular el registro ${r.id}`, `
+    <p class="suave">La anulación es para registros ingresados por error o duplicados. El registro, su evidencia y su historial se conservan.</p>
+    <div class="campo"><label for="m-motivo">Motivo de la anulación</label><textarea id="m-motivo" data-campo="modal.campos.motivo"${i1('motivo')}>${esc(C.motivo)}</textarea>${e1('motivo')}</div>
+    ${aviso('alerta', '', 'La anulación no se puede deshacer.')}`, 'Anular registro', 'btn-rojo');
+  if (M.tipo === 'editar') return marco(`Editar el registro ${r.id}`, `
+    <p class="suave">El número, la carrera y la sesión de origen no cambian. Cada edición queda en el historial con el valor anterior.</p>
+    <div class="campo"><label for="m-descripcion">Descripción de lo observado</label><textarea id="m-descripcion" data-campo="modal.campos.descripcion"${i1('descripcion')}>${esc(C.descripcion)}</textarea>${e1('descripcion')}</div>
+    <div class="campo" style="max-width:240px"><label for="m-comprometida">Fecha comprometida</label><input type="date" id="m-comprometida" data-campo="modal.campos.comprometida" value="${esc(C.comprometida)}" min="${sesionDe(r).fecha}"${i1('comprometida')}>${e1('comprometida')}</div>`, 'Guardar cambios');
+  if (M.tipo === 'malla') return marco('Nueva versión de malla', `
+    <p class="suave">${esc(carrera(estado.mallasCarrera).nombre)}</p>
+    <div class="rejilla" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
+      <div class="campo"><label for="m-anio">Año de la malla</label><input type="text" inputmode="numeric" id="m-anio" data-campo="modal.campos.anio" value="${esc(C.anio)}"${i1('anio')}>${e1('anio')}</div>
+      <div class="campo"><label for="m-vigente">Vigente desde</label><input type="date" id="m-vigente" data-campo="modal.campos.vigente" value="${esc(C.vigente)}"${i1('vigente')}>${e1('vigente')}</div></div>
+    ${adjunto('Archivo de la malla', 'malla', 'PDF de hasta 20 MB.')}`, 'Subir versión');
+  if (M.tipo === 'confirmar') { const b = estado.borrador; return marco('Guardar la sesión', `
+    <p>Se registrará la sesión del <b class="num">${f(b.fecha)}</b> (${esc(b.canal)}) con ${plural(b.registros.length, 'registro', 'registros')}:</p>
+    <ul class="lista-conf">${b.registros.map(x => `<li><b>${esc(carrera(x.carrera).nombre)}</b>: ${esc(x.nivel)} · ${esc(objetoFinal(x))}, comprometido para el <span class="num">${f(x.comprometida)}</span></li>`).join('')}</ul>
+    ${aviso('info', '', 'Al guardar se asigna un número a cada registro. Los registros no se eliminan: un error se corrige editando o anulando.')}`, 'Confirmar y guardar'); }
+  return marco('Descartar el borrador', `<p>Se perderá lo que escribiste en esta sesión, incluidos los archivos adjuntos.</p>`, 'Descartar', 'btn-rojo');
+}
+function enviarModal() {
+  const M = estado.modal, C = M.campos, E = M.errores = {}, r = datos.registros.find(x => x.id === estado.detalleId), u = estado.usuario, ahora = Date.now();
+  if (M.tipo === 'cerrar') {
+    if (!C.efectiva) E.efectiva = 'Indica la fecha en que el cambio se hizo efectivo.';
+    else if (C.efectiva > hoyISO()) E.efectiva = 'La fecha efectiva no puede ser posterior a hoy.';
+    else if (C.efectiva < sesionDe(r).fecha) E.efectiva = `La fecha efectiva no puede ser anterior a la sesión (${f(sesionDe(r).fecha)}).`;
+    if (!C.archivo) E.archivo = 'Adjunta la evidencia. Sin ella el registro no se puede cerrar.';
+    if (Object.keys(E).length) return pintar();
+    Object.assign(r, { estado: 'cerrado', efectiva: C.efectiva, evidenciaCierre: C.archivo, comentarioCierre: C.comentario.trim() });
+    r.historial.push({ ts: ahora, usuario: u.nombre, tipo: 'cierre', texto: `Cerrado con fecha efectiva ${f(C.efectiva)} y evidencia “${C.archivo.nombre}”.` });
+    toast(`El registro ${r.id} quedó cerrado.`);
+  } else if (M.tipo === 'anular') {
+    if (C.motivo.trim().length < 10) { E.motivo = 'Explica el motivo con al menos 10 caracteres.'; return pintar(); }
+    Object.assign(r, { estado: 'anulado', motivo: C.motivo.trim() });
+    r.historial.push({ ts: ahora, usuario: u.nombre, tipo: 'anulacion', texto: `Anulado. Motivo: ${C.motivo.trim()}` });
+    toast(`El registro ${r.id} quedó anulado.`);
+  } else if (M.tipo === 'editar') {
+    if (C.descripcion.trim().length < 20) E.descripcion = 'La descripción necesita al menos 20 caracteres.';
+    if (!C.comprometida) E.comprometida = 'Indica la fecha comprometida.'; else if (C.comprometida < sesionDe(r).fecha) E.comprometida = 'No puede ser anterior a la sesión.';
+    if (Object.keys(E).length) return pintar();
+    const cambios = [];
+    if (C.comprometida !== r.comprometida) cambios.push(`la fecha comprometida de ${f(r.comprometida)} a ${f(C.comprometida)}`);
+    if (C.descripcion.trim() !== r.descripcion) cambios.push(`la descripción (antes: “${r.descripcion}”)`);
+    if (cambios.length) { r.historial.push({ ts: ahora, usuario: u.nombre, tipo: 'edicion', texto: 'Cambió ' + cambios.join(' y ') + '.' }); r.descripcion = C.descripcion.trim(); r.comprometida = C.comprometida; toast('Cambios guardados. Quedaron en el historial.'); }
+    else toast('No había cambios que guardar.');
+  } else if (M.tipo === 'malla') {
+    const a = Number(C.anio);
+    if (!/^\d{4}$/.test(C.anio) || a < 2000 || a > new Date().getFullYear() + 1) E.anio = 'Escribe el año con cuatro dígitos.';
+    else if (datos.mallas.some(m => m.carrera === estado.mallasCarrera && m.anio === a)) E.anio = `Ya existe la malla ${a} de esta carrera.`;
+    if (!C.vigente) E.vigente = 'Indica desde cuándo rige.';
+    if (!C.archivo) E.archivo = 'Adjunta el PDF de la malla.';
+    if (Object.keys(E).length) return pintar();
+    datos.mallas.push({ id: uid(), carrera: estado.mallasCarrera, anio: a, vigente: C.vigente, archivo: C.archivo, subidoPor: u.nombre, ts: ahora });
+    toast(`La malla ${a} quedó cargada.`);
+  } else if (M.tipo === 'confirmar') {
+    estado.modal = null; estado.guardando = true; pintar();
+    return setTimeout(() => { estado.guardando = false; guardarSesion(); pintar(); window.scrollTo({ top: 0 }); }, 800);
+  } else { estado.borrador = null; estado.erroresForm = null; estado.vista = 'registros'; toast('Borrador descartado.'); }
+  estado.modal = null; guardarLocal(); pintar();
+}
+
+/* ---------- Pintado ---------- */
+function pintar() {
+  const act = document.activeElement, fid = estado._foco || (act && act.id) || null; let sel = null;
+  try { if (act && act.id && act.id === fid && act.selectionStart != null) sel = [act.selectionStart, act.selectionEnd]; } catch { /* campos sin selección */ }
+  estado._foco = null;
+  appEl.innerHTML = estado.usuario ? vistaShell() : vistaLogin();
+  modalEl.innerHTML = estado.modal ? vistaModal() : '';
+  tipEl.hidden = true;
+  if (estado.usuario && estado.vista === 'panel') animarCifras();
+  if (fid) { const el = document.getElementById(fid); if (el) { el.focus(); if (sel) { try { el.setSelectionRange(sel[0], sel[1]); } catch { /* idem */ } } } }
+}
+function ir(vista) {
+  if (vista === 'nueva' && estado.exito) estado.exito = null;
+  if (vista === 'panel') memoPanel = {};
+  estado.vista = vista; estado.menuNav = false; estado.menuUsuario = false; if (vista !== 'nueva') estado.erroresForm = null; pintar(); window.scrollTo({ top: 0 });
+}
+function asignar(ruta, valor) { const p = ruta.split('.'); let o = estado; for (let i = 0; i < p.length - 1; i++) o = o[p[i]]; o[p[p.length - 1]] = valor; }
+let relojBorrador = null;
+function limpiarError(id) {
+  const E = estado.erroresForm; if (!E || !id || !E[id]) return;
+  delete E[id];
+  const el = document.getElementById(id); if (el) { el.removeAttribute('aria-invalid'); el.removeAttribute('aria-describedby'); }
+  const sp = document.getElementById(id + '-err'); if (sp) sp.remove();
+  const enlace = document.querySelector(`#resumen-err [data-id="${id}"]`); if (enlace && enlace.parentElement) enlace.parentElement.remove();
+  const caja = document.getElementById('resumen-err'), n = Object.keys(E).length;
+  if (!n) { estado.erroresForm = null; if (caja) caja.remove(); } else if (caja) caja.querySelector('b').textContent = `No se pudo guardar. Revisa ${plural(n, 'campo', 'campos')}:`;
+}
+function refrescarResumen() { const el = document.getElementById('resumen-nueva'); if (el && estado.borrador) el.innerHTML = resumenNueva(); }
+function marcarBorrador() { if (!estado.borrador) return; estado.borrador.guardado = Date.now(); guardarLocal(); refrescarResumen(); }
+function restaurarDatos() {
+  datos = semilla(); estado.borrador = null; estado.exito = null; estado.erroresForm = null; estado.filtros = filtrosVacios(); estado.pagina = 1; estado.modal = null; estado.panel = { sector: '', carrera: '' }; guardarPanel();
+  if (estado.vista === 'detalle') estado.vista = 'registros'; guardarLocal(); pintar(); toast('Datos de ejemplo restaurados.');
+}
+
+/* ---------- Acciones ---------- */
+function despachar(accion, d) {
+  if (estado.usuario && estado.expirada) return salir('expirada');
+  const L = estado.login, b = estado.borrador;
+  switch (accion) {
+    case 'login-enviar': return enviarLogin();
+    case 'login-ver': L.verClave = !L.verClave; estado._foco = 'login-clave'; return pintar();
+    case 'login-olvido': L.olvido = !L.olvido; return pintar();
+    case 'menu-usuario': estado.menuUsuario = !estado.menuUsuario; return pintar();
+    case 'menu-nav': estado.menuNav = !estado.menuNav; return pintar();
+    case 'salir': return salir('salida');
+    case 'buscar': estado.filtros = { ...filtrosVacios(), q: estado.busqueda.trim() }; estado.busqueda = ''; estado.pagina = 1; return ir('registros');
+    case 'ir': return ir(d.vista);
+    case 'ver': if (!d.id) return; estado.detalleId = d.id; return ir('detalle');
+    case 'panel-anio': estado.anioPanel = d.anio; guardarPanel(); return pintar();
+    case 'panel-quitar': estado.panel[d.k] = ''; if (d.k === 'sector') estado.panel.carrera = ''; guardarPanel(); estado._foco = d.k === 'sector' ? 'p-sector' : 'p-carrera'; return pintar();
+    case 'panel-limpiar': estado.panel = { sector: '', carrera: '' }; guardarPanel(); estado._foco = 'p-sector'; return pintar();
+    // Del panel al listado: viajan el año y los filtros del panel, más la dimensión en la que se hizo clic
+    case 'panel-filtrar': estado.filtros = { ...filtrosVacios(), anio: estado.anioPanel, sector: estado.panel.sector, carrera: estado.panel.carrera, [d.filtro]: d.valor }; estado.pagina = 1; return ir('registros');
+    case 'filtros-limpiar': estado.filtros = filtrosVacios(); estado.pagina = 1; return pintar();
+    case 'filtro-quitar': estado.filtros[d.k] = d.k === 'anio' ? 'todos' : ''; if (d.k === 'sector') estado.filtros.carrera = ''; estado.pagina = 1; return pintar();
+    case 'pagina': estado.pagina = Number(d.p); return pintar();
+    case 'exportar': { const F = estado.filtros; return toast(`Se generó registros-${F.anio === 'todos' ? 'todos' : F.anio}.xlsx con ${plural(filtrar().length, 'fila', 'filas')}, las mismas del listado.`); }
+    case 'descargar': return toast(`Descargando “${d.nombre}”.`);
+    case 'foco': { const el = document.getElementById(d.id); if (el) { el.focus(); el.scrollIntoView({ block: 'center' }); } return; }
+    case 'reg-agregar': b.registros.push(registroVacio(estado.usuario)); marcarBorrador(); estado._foco = `r${b.registros.length - 1}-${carrerasDe(estado.usuario).length === 1 ? 'nivel' : 'sector'}`; return pintar();
+    case 'reg-quitar': b.registros.splice(Number(d.i), 1); estado.erroresForm = null; marcarBorrador(); return pintar();
+    case 'acta-quitar': b.acta = null; marcarBorrador(); return pintar();
+    case 'foto-quitar': b.fotos = b.fotos.filter(a => a.id !== d.id); marcarBorrador(); return pintar();
+    case 'modal-archivo-quitar': estado.modal.campos.archivo = null; return pintar();
+    case 'archivo-elegir': destinoArchivo = d.destino; selector.accept = d.destino === 'foto' ? '.jpg,.jpeg,.png,image/jpeg,image/png' : d.destino === 'cierre' ? '.pdf,.jpg,.jpeg,.png' : '.pdf,application/pdf'; return selector.click();
+    case 'nueva-enviar': {
+      if (estado.guardando) return;
+      const e = validarBorrador(b);
+      if (Object.keys(e).length) { estado.erroresForm = e; estado._foco = 'resumen-err'; pintar(); const r = document.getElementById('resumen-err'); if (r) r.scrollIntoView({ block: 'center' }); return; }
+      estado.erroresForm = null; return abrirModal('confirmar');
+    }
+    case 'nueva-descartar': return abrirModal('descartar');
+    case 'nueva-otra': estado.exito = null; estado.borrador = null; return ir('nueva');
+    case 'modal-abrir': return abrirModal(d.tipo);
+    case 'modal-cerrar': estado.modal = null; return pintar();
+    case 'modal-enviar': return enviarModal();
+  }
+}
+document.addEventListener('click', e => {
+  ultimaActividad = Date.now();
+  const el = e.target.closest('[data-accion]');
+  if (estado.menuUsuario && !e.target.closest('.usuario')) { estado.menuUsuario = false; if (!el) return pintar(); }
+  if (!el) { if (e.target.classList && e.target.classList.contains('modal-fondo')) { estado.modal = null; pintar(); } return; }
+  if (el.disabled) return;
+  despachar(el.dataset.accion, el.dataset);
+});
+document.addEventListener('submit', e => { e.preventDefault(); if (e.target.dataset.envio) despachar(e.target.dataset.envio, e.target.dataset); });
+document.addEventListener('input', e => {
+  const t = e.target, c = t.dataset && t.dataset.campo; if (!c || t.tagName === 'SELECT') return;
+  if (estado.usuario && estado.expirada) return salir('expirada');
+  asignar(c, t.value);
+  if (c.startsWith('borrador.')) {
+    limpiarError(t.id);
+    clearTimeout(relojBorrador); relojBorrador = setTimeout(marcarBorrador, 500);
+    const m = c.match(/^borrador\.registros\.(\d+)\.descripcion$/); if (m) { const n = document.getElementById(`r${m[1]}-cuenta`); if (n) n.textContent = t.value.trim().length; }
+  }
+});
+document.addEventListener('change', e => {
+  const t = e.target, c = t.dataset && t.dataset.campo; if (!c || t.tagName !== 'SELECT') return;
+  if (estado.usuario && estado.expirada) return salir('expirada');
+  asignar(c, t.value);
+  const m = c.match(/^borrador\.registros\.(\d+)\.(\w+)$/);
+  if (m) { const r = estado.borrador.registros[Number(m[1])]; if (m[2] === 'sector') { r.carrera = ''; r.objeto = ''; } if (m[2] === 'carrera') r.objeto = ''; if (m[2] === 'nivel') { r.objeto = ''; r.recurso = ''; } }
+  if (c === 'filtros.sector') estado.filtros.carrera = '';
+  if (c === 'panel.sector') estado.panel.carrera = '';
+  if (c === 'panel.carrera' && t.value) estado.panel.sector = carrera(t.value).sector;
+  if (c.startsWith('panel.')) guardarPanel();
+  if (c.startsWith('filtros.')) estado.pagina = 1;
+  if (c.startsWith('borrador.')) { limpiarError(t.id); marcarBorrador(); }
+  if (t.dataset.repintar != null) pintar();
+});
+document.addEventListener('keydown', e => {
+  ultimaActividad = Date.now();
+  if (e.key === 'Escape') { if (estado.modal) { estado.modal = null; return pintar(); } if (estado.menuUsuario) { estado.menuUsuario = false; return pintar(); } }
+  // Atajos de demostración, sin presencia en la interfaz.
+  if (e.altKey && e.shiftKey && e.code === 'KeyX' && estado.usuario) { e.preventDefault(); return salir('expirada'); }
+  if (e.altKey && e.shiftKey && e.code === 'KeyD') { e.preventDefault(); return restaurarDatos(); }
+  if (e.target.id === 'login-clave' && e.getModifierState) { const m = document.getElementById('mayusculas'); if (m) m.hidden = !e.getModifierState('CapsLock'); }
+});
+
+/* Arrastrar y soltar archivos */
+document.addEventListener('dragover', e => { const z = e.target.closest && e.target.closest('[data-soltar]'); if (z) { e.preventDefault(); z.classList.add('sobre'); } });
+document.addEventListener('dragleave', e => { const z = e.target.closest && e.target.closest('[data-soltar]'); if (z && !z.contains(e.relatedTarget)) z.classList.remove('sobre'); });
+document.addEventListener('drop', e => { const z = e.target.closest && e.target.closest('[data-soltar]'); if (!z) return; e.preventDefault(); const a = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (a) recibirArchivo(a.name, a.size, z.dataset.soltar); });
+
+/* Información al pasar por los gráficos */
+function mostrarTip(el) {
+  tipEl.textContent = el.dataset.tip; tipEl.hidden = false;
+  const r = el.getBoundingClientRect(), w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+  tipEl.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
+  tipEl.style.top = (r.top - h - 8 < 8 ? r.bottom + 8 : r.top - h - 8) + 'px';
+}
+document.addEventListener('mouseover', e => { const el = e.target.closest && e.target.closest('[data-tip]'); if (el) mostrarTip(el); else tipEl.hidden = true; });
+document.addEventListener('focusin', e => { const el = e.target.closest && e.target.closest('[data-tip]'); if (el) mostrarTip(el); else tipEl.hidden = true; });
+window.addEventListener('scroll', () => { tipEl.hidden = true; }, { passive: true });
+
+/* Cuenta regresiva del bloqueo y cierre por inactividad */
+setInterval(() => {
+  if (estado.usuario) { if (Date.now() - ultimaActividad > INACTIVIDAD) salir('expirada'); return; }
+  const a = estado.login.aviso; if (!a || a.tipo !== 'bloqueo') return;
+  if (!bloqueado(a.correo)) { delete estado.bloqueos[a.correo]; estado.login.aviso = null; return pintar(); }
+  const el = document.getElementById('cuenta-atras'); if (el) el.textContent = faltan(a.correo);
+}, 1000);
+
+if (!anios().includes(estado.anioPanel)) estado.anioPanel = anios()[0];
+pintar();
+})();
+</script>

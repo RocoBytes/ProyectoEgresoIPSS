@@ -1,0 +1,100 @@
+# Topología de la Figura 3 del informe con las correcciones de la validación:
+# - solo el proxy publica puertos; la base queda en una red interna
+# - las migraciones corren en un servicio de una sola ejecución con el rol migrador; la API usa el rol sin DELETE
+name: ipss
+
+services:
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMINIO: ${DOMINIO}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_datos:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_started
+    networks: [frontal]
+
+  web:
+    image: ghcr.io/${GHCR_ORG}/ipss-web:${VERSION}
+    restart: unless-stopped
+    networks: [frontal]
+
+  api:
+    image: ghcr.io/${GHCR_ORG}/ipss-api:${VERSION}
+    restart: unless-stopped
+    user: node
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      TRUST_PROXY: "1"
+      TZ: America/Santiago
+      DATABASE_URL: postgresql://ipss_api:${CLAVE_BD_API}@bd:5432/ipss
+      JWT_SECRETO: ${JWT_SECRETO}
+      DIRECTORIO_EVIDENCIAS: /datos/evidencias
+    volumes:
+      # El Dockerfile debe crear /datos/evidencias con dueño node (mkdir + chown) antes de declarar el volumen;
+      # si no, el volumen nace como root y la primera carga falla con EACCES. No probado aquí: requiere levantar el contenedor.
+      - evidencias:/datos/evidencias
+    depends_on:
+      migrar:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/salud').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks: [frontal, datos]
+
+  migrar:
+    image: ghcr.io/${GHCR_ORG}/ipss-api:${VERSION}
+    restart: "no"
+    command: ["npx", "prisma", "migrate", "deploy"]
+    environment:
+      DATABASE_URL_MIGRADOR: postgresql://ipss_migrador:${CLAVE_BD_MIGRADOR}@bd:5432/ipss
+    depends_on:
+      bd:
+        condition: service_healthy
+    networks: [datos]
+
+  bd:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${CLAVE_BD_SUPERUSUARIO}
+      CLAVE_BD_MIGRADOR: ${CLAVE_BD_MIGRADOR}
+      CLAVE_BD_API: ${CLAVE_BD_API}
+      TZ: UTC
+    volumes:
+      - bd_datos:/var/lib/postgresql/data
+      - ./bd/00_roles.sh:/docker-entrypoint-initdb.d/00_roles.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ipss"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [datos]
+
+networks:
+  frontal: {}
+  datos:
+    internal: true
+
+volumes:
+  caddy_datos: {}
+  caddy_config: {}
+  bd_datos: {}
+  evidencias: {}

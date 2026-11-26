@@ -1,0 +1,16 @@
+node_modules/
+dist/
+coverage/
+*.log
+*.tsbuildinfo
+
+# Variables locales; solo se versionan las plantillas .env.ejemplo
+.env
+.env.*
+!.env.ejemplo
+
+# Cliente de Prisma generado en cada instalación
+apps/api/src/generated/
+
+.DS_Store
+.atl/

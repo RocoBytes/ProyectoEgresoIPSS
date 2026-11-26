@@ -1,0 +1,56 @@
+### Reglas de base de datos (rol ipss_api, PostgreSQL 16.15, Node 26.13.0)
+OK    T1 correlativos consecutivos -> R-2026-001, R-2026-002
+OK    T1 la API no puede forzar correlativo, estado ni fecha de creación -> estado=ABIERTO
+OK    T1 historial inicial escrito por trigger -> 2 filas
+OK    T2 denegado: DELETE registro -> 42501 permission denied for table registro
+OK    T2 denegado: DELETE evidencia -> 42501 permission denied for table evidencia
+OK    T2 denegado: DELETE historial_estado -> 42501 permission denied for table historial_estado
+OK    T2 denegado: INSERT historial_estado (falsificar historial) -> 42501 permission denied for table historial_estado
+OK    T2 denegado: UPDATE historial_estado -> 42501 permission denied for table historial_estado
+OK    T2 denegado: UPDATE evidencia -> 42501 permission denied for table evidencia
+OK    T2 denegado: TRUNCATE registro -> 42501 permission denied for table registro
+OK    T2 denegado: DROP TABLE registro -> 42501 must be owner of table registro
+OK    T2 denegado: UPDATE contador_correlativo -> 42501 permission denied for table contador_correlativo
+OK    T2 denegado: llamar siguiente_correlativo() -> 42501 permission denied for function siguiente_correlativo
+OK    T2 denegado: ALTER TABLE (quitar el CHECK) -> 42501 must be owner of table registro
+OK    T2 denegado: DISABLE TRIGGER -> 42501 must be owner of table registro
+OK    T3 cerrar sin fecha ni evidencia -> 23514 new row for relation "registro" violates check constraint "registro_cierre_completo"
+OK    T3 cerrar con fecha y sin evidencia -> 23514 new row for relation "registro" violates check constraint "registro_cierre_completo"
+OK    T3 cierre válido deja historial -> {"estado_anterior":"ABIERTO","estado_nuevo":"CERRADO","usuario":"u2"}
+OK    T4 editar un registro cerrado -> 23514 El registro R-2026-001 está cerrado y no admite modificaciones
+OK    T4 anular un registro cerrado -> 23514 El registro R-2026-001 está cerrado y no admite modificaciones
+OK    T5 anular sin motivo -> 23514 new row for relation "registro" violates check constraint "registro_anulacion_con_motivo"
+OK    T6 mover la fecha comprometida deja huella -> {"usuario":"u2","cambios":{"fecha_comprometida":{"antes":"2027-03-01","despues":"2027-06-30"}}}
+OK    T7 cambiar el correlativo -> 23514 El correlativo, la sesión y la fecha de creación de R-2026-002 no se pueden cambiar
+OK    T8 200 inserciones concurrentes: sin duplicados ni saltos -> 180 confirmadas, 20 revertidas, numeración 1..182 en 325 ms
+OK    T9 el contador de 2027 nace solo -> 1, 2
+OK    T9 31-dic 23:30 en Santiago (01-ene 02:30 UTC) sigue siendo 2026 -> 2026
+INFO  T10 fecha comprometida 2026-12-01 leída como Date y mostrada en hora de Santiago: 30-11-2026
+
+Resultado: 26 correctas, 0 fallas (Node v26.13.0, 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1))
+
+### Prueba de humo HTTP (NestJS 11.2.9, TypeScript 5.9.3, Node 26.13.0)
+OK    A arranque e inyección de dependencias -> listo en 3901 con Node v26.13.0
+OK    B cabeceras de helmet -> nosniff, CSP presente, sin x-powered-by
+OK    C campo no declarado en el DTO se rechaza -> 400 property rol should not exist
+OK    D login con argon2id y cookie de sesión -> hash+verificación 212 ms, verificación sola 101 ms; Max-Age=900; Path=/; Expires=Wed, 11 Nov 2026 20:40:06 GMT; HttpOnly; Secure; SameSite=Strict
+OK    F PDF real aceptado y hash correcto -> sha256 794abaa4f6f0…
+FALLA F nombre con tilde y Ñ llega intacto -> recibido "Acta comitÃ© ÃuÃ±oa.pdf" | reinterpretado latin1→utf8 "Acta comité Ñuñoa.pdf"
+OK    G HTML con extensión .pdf rechazado -> Tipo no permitido: desconocido (declarado: application/pdf)
+OK    H PNG real aceptado -> 70 bytes
+OK    I SVG con script renombrado a .png rechazado -> Tipo no permitido: desconocido (declarado: image/png)
+OK    J archivo de 21 MB rechazado -> 413
+INFO  K archivo que empieza con %PDF y contiene HTML: 201 application/pdf (la validación mira solo los primeros bytes)
+INFO  E sin trust proxy, la API ve: {"ip":"127.0.0.1","ips":[],"xff":"198.51.100.1"}
+OK    E sin trust proxy: 5 fallos de un usuario bloquean a otro usuario distinto -> intentos del atacante 401,401,401,401,401; director legítimo desde otra IP: 429
+INFO  E con trust proxy=1, la API ve: {"ip":"198.51.100.1","ips":["198.51.100.1"],"xff":"198.51.100.1"}
+OK    E con trust proxy: el bloqueo afecta solo a la IP que falló -> atacante 401,401,401,401,401,429; director legítimo: 200
+INFO  E con trust proxy, si el proxy no sobrescribe X-Forwarded-For, rotar la cabecera evita el bloqueo: 401,401,401,401,401,401,401,401
+
+Resultado: 11 correctas, 1 fallas (Node v26.13.0)
+
+### Exportación a Excel con uuid 11.1.1
+xlsx de 7640 bytes; B2 tipo=texto formula=ninguna (Node v26.13.0)
+
+### npm audit (api)
+found 0 vulnerabilities

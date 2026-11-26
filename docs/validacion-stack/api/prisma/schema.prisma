@@ -1,0 +1,97 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum EstadoRegistro {
+  ABIERTO
+  CERRADO
+  ANULADO
+
+  @@map("estado_registro")
+}
+
+model Sesion {
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  canal      String
+  fecha      DateTime    @db.Date
+  instancia  String
+  creadoEn   DateTime    @default(now()) @map("creado_en") @db.Timestamptz(3)
+  registros  Registro[]
+  evidencias Evidencia[]
+
+  @@map("sesion")
+}
+
+model Evidencia {
+  id             String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sesionId       String?    @map("sesion_id") @db.Uuid
+  nombreOriginal String     @map("nombre_original")
+  mime           String
+  tamano         Int
+  sha256         String     @db.Char(64)
+  ruta           String
+  creadoEn       DateTime   @default(now()) @map("creado_en") @db.Timestamptz(3)
+  sesion         Sesion?    @relation(fields: [sesionId], references: [id])
+  cierres        Registro[] @relation("EvidenciaCierre")
+
+  @@map("evidencia")
+}
+
+model Registro {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sesionId          String            @map("sesion_id") @db.Uuid
+  anio              Int               @default(0)
+  numero            Int               @default(0)
+  correlativo       String            @unique @default("")
+  estado            EstadoRegistro    @default(ABIERTO)
+  descripcion       String
+  fechaComprometida DateTime          @map("fecha_comprometida") @db.Date
+  fechaEfectiva     DateTime?         @map("fecha_efectiva") @db.Date
+  evidenciaCierreId String?           @map("evidencia_cierre_id") @db.Uuid
+  motivoAnulacion   String?           @map("motivo_anulacion")
+  actualizadoPor    String            @map("actualizado_por")
+  creadoEn          DateTime          @default(now()) @map("creado_en") @db.Timestamptz(3)
+  sesion            Sesion            @relation(fields: [sesionId], references: [id])
+  evidenciaCierre   Evidencia?        @relation("EvidenciaCierre", fields: [evidenciaCierreId], references: [id])
+  historial         HistorialEstado[]
+  cambios           HistorialCambio[]
+
+  @@unique([anio, numero])
+  @@map("registro")
+}
+
+model HistorialEstado {
+  id             BigInt          @id @default(autoincrement())
+  registroId     String          @map("registro_id") @db.Uuid
+  estadoAnterior EstadoRegistro? @map("estado_anterior")
+  estadoNuevo    EstadoRegistro  @map("estado_nuevo")
+  usuario        String
+  creadoEn       DateTime        @default(now()) @map("creado_en") @db.Timestamptz(3)
+  registro       Registro        @relation(fields: [registroId], references: [id])
+
+  @@map("historial_estado")
+}
+
+model HistorialCambio {
+  id         BigInt   @id @default(autoincrement())
+  registroId String   @map("registro_id") @db.Uuid
+  usuario    String
+  cambios    Json
+  creadoEn   DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+  registro   Registro @relation(fields: [registroId], references: [id])
+
+  @@map("historial_cambio")
+}
+
+model ContadorCorrelativo {
+  anio   Int @id
+  ultimo Int
+
+  @@map("contador_correlativo")
+}
