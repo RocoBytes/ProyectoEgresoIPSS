@@ -1,4 +1,5 @@
 import type { RespuestaSalud } from '@ipss/shared';
+import { Logo } from '../comun/Logo';
 
 interface Props {
   cargando: boolean;
@@ -16,24 +17,6 @@ const formatoHora = new Intl.DateTimeFormat('es-CL', {
   second: '2-digit',
   hour12: false,
 });
-
-function Logo() {
-  return (
-    <svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true" className="flex-none">
-      <rect width="36" height="36" rx="9" fill="#CFB47C" />
-      <path
-        d="M9 24.5h5.5l4-9 4 4.5 4.5-9"
-        fill="none"
-        stroke="#102B42"
-        strokeWidth="2.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="9" cy="24.5" r="2.5" fill="#102B42" />
-      <circle cx="27" cy="11" r="2.5" fill="#102B42" />
-    </svg>
-  );
-}
 
 function Estado({ bueno, texto }: { bueno: boolean; texto: string }) {
   const colores = bueno
@@ -67,7 +50,7 @@ export function TarjetaSalud({ cargando, respuesta, sinRespuesta, alVolverAVerif
     <div className="min-h-screen">
       <header className="bg-navy px-6 py-4">
         <div className="flex items-center gap-3 leading-tight text-white">
-          <Logo />
+          <Logo tamano={36} />
           <div>
             <b className="block text-[15px] font-bold">Perfil de Egreso</b>
             <span className="mt-0.5 block text-[11px] tracking-[.04em] text-sobre-navy-2">
