@@ -1,0 +1,24 @@
+# Actualizaciones automáticas con espera de 7 días, la misma regla de `min-release-age` en .npmrc.
+# Las versiones mayores quedan fuera: CLAUDE.md prohíbe subirlas sin una decisión explícita.
+# Los avisos de seguridad no esperan: Dependabot no aplica `cooldown` a las actualizaciones de seguridad.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      parches-y-menores:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
