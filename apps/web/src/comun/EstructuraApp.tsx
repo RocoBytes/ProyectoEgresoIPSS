@@ -184,7 +184,7 @@ export function EstructuraApp({ usuario, children }: { usuario: UsuarioActual; c
             </NavLink>
           ))}
         </nav>
-        <p className="mt-auto px-3 text-[11.5px] text-sobre-navy-3 max-[900px]:hidden">Versión 1.0 · Prototipo</p>
+        <p className="mt-auto px-3 text-[11.5px] text-sobre-navy-3 max-[900px]:hidden">Versión 1.0</p>
       </aside>
 
       <div className="flex min-w-0 flex-col">

@@ -73,6 +73,13 @@ ejecutarPaso('Aplicando migraciones', 'npx', ['prisma', 'migrate', 'deploy'], {
   cwd: dirApi,
   env: entornoMigrador,
 });
+// La semilla se compila con la API; un build inicial la deja lista antes de sembrar.
+// Es idempotente: no duplica catálogos ni pisa contraseñas ya creadas.
+ejecutarPaso('Compilando la API', 'npx', ['tsc', '-p', 'tsconfig.build.json'], { cwd: dirApi });
+ejecutarPaso('Sembrando datos de ejemplo del prototipo', process.execPath, ['dist/cli/semilla.js'], {
+  cwd: dirApi,
+  env: entornoApi,
+});
 
 lanzar('tsc', 'npx', ['tsc', '-p', 'tsconfig.build.json', '--watch', '--preserveWatchOutput'], {
   cwd: dirApi,

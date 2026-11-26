@@ -95,7 +95,7 @@ export function VistaIngreso({
           </p>
         </div>
         <FichaDeMuestra />
-        <p className="text-xs text-sobre-navy-3 max-[900px]:hidden">Versión 1.0 · Prototipo</p>
+        <p className="text-xs text-sobre-navy-3 max-[900px]:hidden">Versión 1.0</p>
       </section>
 
       <section className="flex items-center justify-center bg-superficie px-6 py-10 max-[900px]:items-start max-[900px]:px-5 max-[900px]:pt-7 max-[900px]:pb-10">

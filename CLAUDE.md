@@ -26,7 +26,11 @@ Requieren Node 26.13.1 con npm 11.20 (`.nvmrc`) y Docker en ejecución. Todos se
 - `npm run dev`:
   - levanta la base de desarrollo (`infra/compose.desarrollo.yaml`, 127.0.0.1:55432);
   - aplica las migraciones con el rol migrador;
+  - siembra los datos de ejemplo del prototipo;
   - arranca la API en http://127.0.0.1:3000/api y la web en http://127.0.0.1:5173, ambas con recarga; la web llega a `/api` por el proxy de Vite.
+- `npm run semilla`: siembra en la base de desarrollo los datos de ejemplo del prototipo.
+  - Carga 4 sectores, 10 carreras con sus asignaturas y módulos, 6 canales y 3 usuarios: `carla.fuentes@`, `matias.sepulveda@` y `paula.henriquez@instituto.example`, con la clave `Demo-2026`.
+  - Es idempotente y se niega a correr con `NODE_ENV=production`.
 - `npm run lint`, `npm run typecheck`, `npm run build`: cubren todos los workspaces y generan antes el cliente de Prisma.
 - `npm test`: recrea la base de pruebas, corre las 26 reglas y después Jest (API) y Vitest (web).
 - `npm run test:bd`: solo las 26 pruebas de reglas de base, con el rol `ipss_api`. Corren sobre `bd-pruebas` (127.0.0.1:55433, en memoria), que se recrea en cada corrida.

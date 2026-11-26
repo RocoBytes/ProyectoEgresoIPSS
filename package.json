@@ -16,7 +16,8 @@
     "build": "npm run build --workspaces --if-present",
     "test:bd": "npm run test:bd -w @ipss/api",
     "test": "npm run test:bd && npm run test --workspaces --if-present",
-    "dev": "node scripts/dev.mjs"
+    "dev": "node scripts/dev.mjs",
+    "semilla": "npm run semilla -w @ipss/api"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
