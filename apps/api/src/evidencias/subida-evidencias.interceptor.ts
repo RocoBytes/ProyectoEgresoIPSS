@@ -9,6 +9,11 @@ import { SUBDIRECTORIO_ENTRANTES } from './disco-local';
 
 export const MAXIMO_BYTES_ARCHIVO = 20 * 1024 * 1024;
 export const MAXIMO_FOTOS = 10;
+// Tope del envío completo (acta + fotos + campos). Es el mismo de Caddy y del plan gratuito de
+// Cloudflare, que cortan por su cuenta sin explicar nada; así la persona recibe un mensaje claro.
+// Decimal a propósito: Caddy interpreta `100MB` como 100.000.000 de bytes, no 100 MiB.
+export const MAXIMO_BYTES_ENVIO = 100 * 1000 * 1000;
+const MENSAJE_ENVIO_GRANDE = 'El envío supera los 100 MB en total. Adjunta menos fotos o reduce su tamaño.';
 const MENSAJE_ARCHIVO_GRANDE = 'El archivo pesa más de 20 MB. Reduce el archivo o divídelo.';
 
 // Mensajes en inglés con los que @nestjs/platform-express traduce los límites de Multer.
@@ -47,12 +52,25 @@ export class SubidaEvidenciasInterceptor implements NestInterceptor {
   }
 
   intercept(contexto: ExecutionContext, siguiente: CallHandler): Observable<unknown> {
+    // Antes de Multer: así el cuerpo no se lee ni se escribe nada en disco. Sin cabecera válida
+    // (p. ej. transferencia fragmentada) valen los límites por archivo y el tope de Caddy.
+    const peticion = contexto.switchToHttp().getRequest<{ headers: Record<string, string | string[] | undefined> }>();
+    const cabecera = peticion.headers['content-length'];
+    if (excedeTamanoEnvio(Array.isArray(cabecera) ? cabecera[0] : cabecera)) {
+      return throwError(() => new PayloadTooLargeException({ statusCode: 413, message: MENSAJE_ENVIO_GRANDE }));
+    }
     // El interceptor interno es asíncrono y entrega una Promise de Observable: `mergeAll` aplana ese Observable interno.
     return defer(async () => this.interno.intercept(contexto, siguiente)).pipe(
       mergeAll(),
       catchError((error: unknown) => throwError(() => traducir(error))),
     );
   }
+}
+
+/** `true` si el Content-Length declara más de 100 MB. Exactamente el tope se permite; lo ausente o no numérico, también. */
+export function excedeTamanoEnvio(contentLength: string | undefined): boolean {
+  if (contentLength === undefined || !/^\d+$/.test(contentLength.trim())) return false;
+  return Number(contentLength.trim()) > MAXIMO_BYTES_ENVIO;
 }
 
 export function traducir(error: unknown): unknown {

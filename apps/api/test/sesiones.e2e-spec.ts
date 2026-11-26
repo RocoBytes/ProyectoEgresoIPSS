@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
+import { request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { RespuestaSesionCreada } from '@ipss/shared';
@@ -224,5 +225,35 @@ describe('POST /api/sesiones y descarga de evidencias', () => {
       expect(r.estado).toBe(500);
       expect(r.cuerpo).toMatchObject({ message: 'La evidencia está dañada; avisa al administrador del sistema.' });
     });
+  });
+  it('rechaza con 413 y mensaje claro un Content-Length mayor a 100 MB sin esperar el cuerpo', async () => {
+    // fetch no deja falsear Content-Length: se usa node:http y no se envía ningún byte del cuerpo.
+    const { estado, cuerpo } = await new Promise<{ estado: number; cuerpo: string }>((resolver, rechazar) => {
+      const peticion = request(
+        `${ap.url}/api/sesiones`,
+        {
+          method: 'POST',
+          headers: {
+            cookie: Object.entries(cookies).map(([n, v]) => `${n}=${v}`).join('; '),
+            'content-type': 'multipart/form-data; boundary=limite',
+            'content-length': '100000001',
+            'x-forwarded-for': '10.8.0.1',
+          },
+        },
+        (respuesta) => {
+          const partes: Buffer[] = [];
+          respuesta.on('data', (parte: Buffer) => partes.push(parte));
+          respuesta.on('end', () => {
+            resolver({ estado: respuesta.statusCode ?? 0, cuerpo: Buffer.concat(partes).toString('utf8') });
+            peticion.destroy();
+          });
+        },
+      );
+      peticion.on('error', rechazar);
+      // Se responde antes de que el cliente termine de enviar: el cuerpo prometido nunca llega.
+      peticion.flushHeaders();
+    });
+    expect(estado).toBe(413);
+    expect((JSON.parse(cuerpo) as { message: string }).message).toBe('El envío supera los 100 MB en total. Adjunta menos fotos o reduce su tamaño.');
   });
 });
