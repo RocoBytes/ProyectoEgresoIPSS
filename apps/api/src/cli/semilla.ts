@@ -1,6 +1,8 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
 import { ContrasenasService } from '../acceso/contrasenas.service';
+import { DIRECTORIO_EVIDENCIAS_DESARROLLO } from '../configuracion';
+import { sembrarRegistros, type ResumenRegistros } from './sembrar-registros';
 import { CANALES_EJEMPLO, CARRERAS_EJEMPLO, CLAVE_EJEMPLO, SECTORES_EJEMPLO, USUARIOS_EJEMPLO } from './datos-ejemplo';
 
 export interface ResumenSemilla {
@@ -9,6 +11,7 @@ export interface ResumenSemilla {
   asignaturas: number;
   canales: number;
   usuariosNuevos: number;
+  datosDelPrototipo: ResumenRegistros;
 }
 
 function idDe(ids: ReadonlyMap<string, string>, nombre: string): string {
@@ -21,7 +24,7 @@ function idDe(ids: ReadonlyMap<string, string>, nombre: string): string {
  * Carga los datos del prototipo. Se puede correr las veces que se quiera: los catálogos se
  * buscan por su clave natural y los usuarios existentes no se tocan (ni su contraseña).
  */
-export async function sembrar(prisma: PrismaClient): Promise<ResumenSemilla> {
+export async function sembrar(prisma: PrismaClient, directorioEvidencias = process.env['DIRECTORIO_EVIDENCIAS'] ?? DIRECTORIO_EVIDENCIAS_DESARROLLO): Promise<ResumenSemilla> {
   const sectores = new Map<string, string>();
   for (const nombre of SECTORES_EJEMPLO) {
     const sector = await prisma.sector.upsert({ where: { nombre }, create: { nombre }, update: {}, select: { id: true } });
@@ -74,7 +77,8 @@ export async function sembrar(prisma: PrismaClient): Promise<ResumenSemilla> {
     });
   }
 
-  return { sectores: sectores.size, carreras: carreras.size, asignaturas, canales: CANALES_EJEMPLO.length, usuariosNuevos };
+  const datosDelPrototipo = await sembrarRegistros(prisma, contrasenas, directorioEvidencias, { sectores, carreras });
+  return { sectores: sectores.size, carreras: carreras.size, asignaturas, canales: CANALES_EJEMPLO.length, usuariosNuevos, datosDelPrototipo };
 }
 
 async function principal(): Promise<void> {
@@ -91,7 +95,7 @@ async function principal(): Promise<void> {
   const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
   try {
     const r = await sembrar(prisma);
-    console.log(`Semilla aplicada: ${r.sectores} sectores, ${r.carreras} carreras, ${r.asignaturas} asignaturas y módulos, ${r.canales} canales y ${r.usuariosNuevos} usuarios nuevos.`);
+    console.log(`Semilla aplicada: ${r.sectores} sectores, ${r.carreras} carreras, ${r.asignaturas} asignaturas y módulos, ${r.canales} canales y ${r.usuariosNuevos} usuarios nuevos, más ${r.datosDelPrototipo.usuariosInactivos} inactivos, ${r.datosDelPrototipo.mallas} mallas, ${r.datosDelPrototipo.sesiones} sesiones y ${r.datosDelPrototipo.registros} registros nuevos.`);
   } finally {
     await prisma.$disconnect();
   }

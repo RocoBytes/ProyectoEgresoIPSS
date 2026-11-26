@@ -1,3 +1,4 @@
+import { DIRECTORIO_EVIDENCIAS_PRUEBAS } from './ayudas/acceso';
 import { randomUUID } from 'node:crypto';
 import { Body, Controller, Get, Injectable, Logger, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
@@ -106,7 +107,7 @@ async function crearFixtures(): Promise<Fixtures> {
     const nuevoRegistro = (): Promise<string> =>
       insertar(
         `INSERT INTO registro (sesion_id, carrera_id, nivel_impacto, descripcion, fecha_comprometida, actualizado_por)
-         VALUES ($1, $2, 'RECURSO', 'descripcion', '2026-12-01', $3) RETURNING id`,
+         VALUES ($1, $2, 'PERFIL_INGRESO', 'descripcion', '2026-12-01', $3) RETURNING id`,
         [sesionId, carreraId, usuarioId],
       );
     const registroAbiertoId = await nuevoRegistro();
@@ -148,7 +149,7 @@ describe('traducción de errores de la base y de la entrada (e2e contra PostgreS
 
   beforeAll(async () => {
     fx = await crearFixtures();
-    const config: Configuracion = { urlBaseDeDatos: URL_API, puerto: 0, host: '127.0.0.1', saltosProxy: undefined, jwtSecreto: 'secreto-de-pruebas-de-al-menos-32-caracteres' };
+    const config: Configuracion = { urlBaseDeDatos: URL_API, puerto: 0, host: '127.0.0.1', saltosProxy: undefined, jwtSecreto: 'secreto-de-pruebas-de-al-menos-32-caracteres', directorioEvidencias: DIRECTORIO_EVIDENCIAS_PRUEBAS };
     const modulo = await Test.createTestingModule({ imports: [AppModule], controllers: [ControladorPruebas] })
       .overrideProvider(CONFIGURACION)
       .useValue(config)

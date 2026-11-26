@@ -1,3 +1,4 @@
+import { resolve } from 'node:path';
 import { cargarConfiguracion } from './configuracion';
 
 describe('cargarConfiguracion', () => {
@@ -11,6 +12,7 @@ describe('cargarConfiguracion', () => {
       host: '127.0.0.1',
       saltosProxy: undefined,
       jwtSecreto: secreto,
+      directorioEvidencias: resolve(__dirname, '..', '.datos', 'evidencias'),
     });
   });
 
@@ -41,8 +43,8 @@ describe('cargarConfiguracion', () => {
   it('con NODE_ENV=production exige TRUST_PROXY, y sin producción es opcional', () => {
     expect(() => cargarConfiguracion({ ...base, NODE_ENV: 'production' })).toThrow('Falta la variable de entorno TRUST_PROXY');
     expect(() => cargarConfiguracion({ ...base, NODE_ENV: 'production', TRUST_PROXY: '' })).toThrow('TRUST_PROXY');
-    expect(cargarConfiguracion({ ...base, NODE_ENV: 'production', TRUST_PROXY: '1' }).saltosProxy).toBe(1);
-    expect(cargarConfiguracion({ ...base, NODE_ENV: 'production', TRUST_PROXY: '0' }).saltosProxy).toBe(0);
+    expect(cargarConfiguracion({ ...base, NODE_ENV: 'production', TRUST_PROXY: '1', DIRECTORIO_EVIDENCIAS: '/datos/evidencias' }).saltosProxy).toBe(1);
+    expect(cargarConfiguracion({ ...base, NODE_ENV: 'production', TRUST_PROXY: '0', DIRECTORIO_EVIDENCIAS: '/datos/evidencias' }).saltosProxy).toBe(0);
     expect(cargarConfiguracion({ ...base, NODE_ENV: 'development' }).saltosProxy).toBeUndefined();
   });
 
@@ -52,5 +54,12 @@ describe('cargarConfiguracion', () => {
 
   it('rechaza un PORT que no es entero', () => {
     expect(() => cargarConfiguracion({ ...base, PORT: 'http' })).toThrow('PORT');
+  });
+
+  it('DIRECTORIO_EVIDENCIAS es obligatorio en producción y debe ser absoluto', () => {
+    const produccion = { ...base, NODE_ENV: 'production', TRUST_PROXY: '1' };
+    expect(() => cargarConfiguracion(produccion)).toThrow('DIRECTORIO_EVIDENCIAS');
+    expect(() => cargarConfiguracion({ ...produccion, DIRECTORIO_EVIDENCIAS: 'relativa/ruta' })).toThrow('absoluta');
+    expect(cargarConfiguracion({ ...produccion, DIRECTORIO_EVIDENCIAS: '/datos/evidencias' }).directorioEvidencias).toBe('/datos/evidencias');
   });
 });

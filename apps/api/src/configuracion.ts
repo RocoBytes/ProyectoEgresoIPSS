@@ -1,3 +1,5 @@
+import { resolve, isAbsolute } from 'node:path';
+
 // Configuración tipada leída una sola vez al arrancar. La función es pura
 // (recibe el entorno) para poder probarla sin tocar `process.env`.
 export interface Configuracion {
@@ -8,12 +10,17 @@ export interface Configuracion {
   saltosProxy: number | undefined;
   /** Secreto de firma de los JWT de acceso (HS256). */
   jwtSecreto: string;
+  /** Carpeta absoluta donde se guardan las evidencias (ADR 0013). */
+  directorioEvidencias: string;
 }
 
 // HS256 firma con HMAC: un secreto corto se adivina por fuerza bruta sin conexión.
 const LARGO_MINIMO_JWT_SECRETO = 32;
 
 export const CONFIGURACION = Symbol('CONFIGURACION');
+
+// En desarrollo se guardan dentro del repositorio (y fuera de git); en producción debe ser un volumen explícito.
+export const DIRECTORIO_EVIDENCIAS_DESARROLLO = resolve(__dirname, '..', '.datos', 'evidencias');
 
 type Entorno = Readonly<Record<string, string | undefined>>;
 
@@ -43,6 +50,14 @@ export function cargarConfiguracion(entorno: Entorno): Configuracion {
   if (entorno['NODE_ENV'] === 'production' && (proxy === undefined || proxy === '')) {
     throw new Error('Falta la variable de entorno TRUST_PROXY (saltos de proxy confiables; 1 detrás de Caddy) con NODE_ENV=production');
   }
+  const directorio = entorno['DIRECTORIO_EVIDENCIAS'];
+  const hayDirectorio = directorio !== undefined && directorio.trim() !== '';
+  if (!hayDirectorio && entorno['NODE_ENV'] === 'production') {
+    throw new Error('Falta la variable de entorno DIRECTORIO_EVIDENCIAS (carpeta de las evidencias) con NODE_ENV=production');
+  }
+  if (hayDirectorio && !isAbsolute(directorio)) {
+    throw new Error('DIRECTORIO_EVIDENCIAS debe ser una ruta absoluta');
+  }
   return {
     urlBaseDeDatos: url,
     puerto: puerto === undefined || puerto === '' ? 3000 : enteroNoNegativo('PORT', puerto),
@@ -50,5 +65,6 @@ export function cargarConfiguracion(entorno: Entorno): Configuracion {
     host: entorno['HOST'] === undefined || entorno['HOST'] === '' ? '127.0.0.1' : entorno['HOST'],
     saltosProxy: proxy === undefined || proxy === '' ? undefined : enteroNoNegativo('TRUST_PROXY', proxy),
     jwtSecreto: secreto,
+    directorioEvidencias: hayDirectorio ? directorio : DIRECTORIO_EVIDENCIAS_DESARROLLO,
   };
 }
