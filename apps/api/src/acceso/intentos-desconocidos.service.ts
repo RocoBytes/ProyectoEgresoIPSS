@@ -3,24 +3,25 @@ import { RELOJ, type Reloj } from '../comun/reloj';
 
 export const MAX_INTENTOS = 5;
 export const DURACION_BLOQUEO_MS = 15 * 60_000;
+/** Un intento más viejo que esto ya no cuenta: el contador vuelve a empezar (igual en la base y aquí). */
+export const VENTANA_INTENTOS_MS = 15 * 60_000;
 // Tope de entradas: sin él, quien envía correos inventados sin parar agotaría la memoria.
 // Con 10 usuarios reales, 10.000 entradas sobran para el uso legítimo.
 const MAX_ENTRADAS = 10_000;
 
 interface Entrada {
   intentos: number;
+  ultimoIntentoEn: Date;
   bloqueadoHasta: Date | null;
-  /** Después de este instante la entrada ya no cuenta y puede descartarse. */
-  vigenteHasta: Date;
 }
 
-export type ResultadoFallo = { bloqueado: false; intentosRestantes: number } | { bloqueado: true; bloqueadoHasta: Date };
+export type Reserva = { yaBloqueado: true; bloqueadoHasta: Date } | { yaBloqueado: false; n: number; bloqueadoHasta: Date | null };
 
 /**
- * Cuenta intentos fallidos de correos que no tienen cuenta, con las mismas reglas que
- * `usuario.intentos_fallidos` y `usuario.bloqueado_hasta`. Sin esto, un correo inexistente
- * nunca se bloquearía y la diferencia revelaría qué correos existen (ADR 0010).
- * Vive en memoria: se pierde al reiniciar, y para este fin (no revelar cuentas) basta.
+ * Lleva los intentos de correos que no tienen cuenta con las mismas reglas que las columnas
+ * `usuario.intentos_fallidos`, `ultimo_fallo_en` y `bloqueado_hasta`. Sin esto, un correo
+ * inexistente nunca se bloquearía y esa diferencia revelaría que no existe (ADR 0010).
+ * Vive en memoria: se pierde al reiniciar y, al llenarse, descarta lo más antiguo.
  */
 @Injectable()
 export class IntentosDesconocidosService {
@@ -29,30 +30,38 @@ export class IntentosDesconocidosService {
 
   constructor(@Inject(RELOJ) private readonly reloj: Reloj) {}
 
-  bloqueadoHasta(correo: string): Date | null {
-    const ahora = this.reloj.ahora();
-    const entrada = this.entradas.get(correo);
-    if (entrada === undefined) return null;
-    if (entrada.vigenteHasta <= ahora) {
-      this.entradas.delete(correo);
-      return null;
-    }
-    return entrada.bloqueadoHasta !== null && entrada.bloqueadoHasta > ahora ? entrada.bloqueadoHasta : null;
-  }
-
-  registrarFallo(correo: string): ResultadoFallo {
+  /**
+   * Reserva el intento ANTES de verificar la contraseña. Es síncrona a propósito: en Node nada
+   * se intercala entre leer y escribir, así que dos ingresos simultáneos nunca reservan el mismo número.
+   * Si el número reservado supera el máximo, el correo queda bloqueado en este mismo paso.
+   */
+  reservar(correo: string): Reserva {
     const ahora = this.reloj.ahora();
     const previa = this.entradas.get(correo);
-    const intentos = (previa !== undefined && previa.vigenteHasta > ahora ? previa.intentos : 0) + 1;
+    if (previa?.bloqueadoHasta != null && previa.bloqueadoHasta > ahora) return { yaBloqueado: true, bloqueadoHasta: previa.bloqueadoHasta };
+
+    const vigente = previa !== undefined && ahora.getTime() - previa.ultimoIntentoEn.getTime() <= VENTANA_INTENTOS_MS;
+    const n = (vigente ? previa.intentos : 0) + 1;
     // Se reinserta para que quede al final del orden de antigüedad.
     this.entradas.delete(correo);
-    if (intentos >= MAX_INTENTOS) {
+    if (n > MAX_INTENTOS) {
       const bloqueadoHasta = new Date(ahora.getTime() + DURACION_BLOQUEO_MS);
-      this.guardar(correo, { intentos: 0, bloqueadoHasta, vigenteHasta: bloqueadoHasta });
-      return { bloqueado: true, bloqueadoHasta };
+      this.guardar(correo, { intentos: 0, ultimoIntentoEn: ahora, bloqueadoHasta });
+      return { yaBloqueado: false, n, bloqueadoHasta };
     }
-    this.guardar(correo, { intentos, bloqueadoHasta: null, vigenteHasta: new Date(ahora.getTime() + DURACION_BLOQUEO_MS) });
-    return { bloqueado: false, intentosRestantes: MAX_INTENTOS - intentos };
+    this.guardar(correo, { intentos: n, ultimoIntentoEn: ahora, bloqueadoHasta: null });
+    return { yaBloqueado: false, n, bloqueadoHasta: null };
+  }
+
+  /** El intento número MAX_INTENTOS falló: bloquea. Devuelve el fin del bloqueo (el vigente si ya lo había). */
+  bloquear(correo: string): Date {
+    const ahora = this.reloj.ahora();
+    const previa = this.entradas.get(correo);
+    if (previa?.bloqueadoHasta != null && previa.bloqueadoHasta > ahora) return previa.bloqueadoHasta;
+    const bloqueadoHasta = new Date(ahora.getTime() + DURACION_BLOQUEO_MS);
+    this.entradas.delete(correo);
+    this.guardar(correo, { intentos: 0, ultimoIntentoEn: previa?.ultimoIntentoEn ?? ahora, bloqueadoHasta });
+    return bloqueadoHasta;
   }
 
   get tamano(): number {
@@ -67,7 +76,8 @@ export class IntentosDesconocidosService {
   private hacerEspacio(): void {
     const ahora = this.reloj.ahora();
     for (const [clave, entrada] of this.entradas) {
-      if (entrada.vigenteHasta <= ahora) this.entradas.delete(clave);
+      const bloqueada = entrada.bloqueadoHasta !== null && entrada.bloqueadoHasta > ahora;
+      if (!bloqueada && ahora.getTime() - entrada.ultimoIntentoEn.getTime() > VENTANA_INTENTOS_MS) this.entradas.delete(clave);
     }
     // Si todas siguen vigentes se descarta la más antigua: prefiere perder un contador a quedarse sin memoria.
     while (this.entradas.size >= MAX_ENTRADAS) {

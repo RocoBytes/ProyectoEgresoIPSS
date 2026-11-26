@@ -214,6 +214,103 @@ describe('POST /api/acceso/ingresar (e2e contra PostgreSQL real)', () => {
     });
   });
 
+  describe('ventana de intentos y ráfagas', () => {
+    it('tras 2 fallos y 16 minutos, el siguiente fallo vuelve a dar 4 intentos restantes: igual en una cuenta real y en una inexistente', async () => {
+      const real = await crearUsuario('DIRECTOR_CARRERA');
+      const falso = correoInexistente();
+      for (const correo of [real.correo, falso]) {
+        await intentar(correo, 'mal');
+        await intentar(correo, 'mal');
+      }
+      ctx.reloj.avanzar(16 * MINUTO);
+      const deReal = paso(await intentar(real.correo, 'mal'));
+      const deFalso = paso(await intentar(falso, 'mal'));
+      expect(deReal).toEqual(secuenciaEsperada()[0]);
+      expect(deFalso).toEqual(deReal);
+    });
+
+    it('con exactamente 15 minutos el intento anterior todavía cuenta, igual en ambos casos', async () => {
+      const real = await crearUsuario('DIRECTOR_CARRERA');
+      const falso = correoInexistente();
+      for (const correo of [real.correo, falso]) await intentar(correo, 'mal');
+      ctx.reloj.avanzar(15 * MINUTO);
+      const deReal = paso(await intentar(real.correo, 'mal'));
+      const deFalso = paso(await intentar(falso, 'mal'));
+      expect(deReal.cuerpo).toMatchObject({ intentosRestantes: 3 });
+      expect(deFalso).toEqual(deReal);
+    });
+
+    it('una ráfaga de 10 intentos erróneos y uno correcto nunca verifica más de 5 contraseñas ni deja entrar', async () => {
+      const usuario = await crearUsuario('DIRECTOR_CARRERA');
+      const contrasenas = ctx.app.get(ContrasenasService);
+      const verificarReal = contrasenas.verificar.bind(contrasenas);
+      let abrir: () => void = () => undefined;
+      const compuerta = new Promise<void>((resolver) => {
+        abrir = resolver;
+      });
+      // Retiene las verificaciones hasta que todas las reservas están hechas: así el resultado no depende del orden de llegada.
+      const verificar = jest.spyOn(contrasenas, 'verificar').mockImplementation(async (hash, contrasena) => {
+        await compuerta;
+        return verificarReal(hash, contrasena);
+      });
+      try {
+        const intentos = [...Array<string>(10).fill('incorrecta'), CLAVE_PRUEBAS].map((contrasena) => intentar(usuario.correo, contrasena));
+        for (let i = 0; i < 100; i++) {
+          const { rows } = await conMigrador((c) => c.query<{ bloqueado_hasta: Date | null }>('SELECT bloqueado_hasta FROM usuario WHERE id = $1', [usuario.id]));
+          if (rows[0]?.bloqueado_hasta != null) break;
+          await new Promise((resolver) => setTimeout(resolver, 50));
+        }
+        abrir();
+        const respuestas = await Promise.all(intentos);
+
+        expect(verificar.mock.calls.length).toBeLessThanOrEqual(5);
+        expect(respuestas.filter((r) => r.estado === 200)).toHaveLength(0);
+        expect(respuestas.every((r) => r.setCookie.length === 0)).toBe(true);
+        expect(respuestas.filter((r) => r.estado === 429).length).toBeGreaterThanOrEqual(6);
+        const { rows } = await conMigrador((c) => c.query<{ bloqueado_hasta: Date | null }>('SELECT bloqueado_hasta FROM usuario WHERE id = $1', [usuario.id]));
+        expect(rows[0]?.bloqueado_hasta).not.toBeNull();
+        expect((await ingresar(ctx.url, usuario)).estado).toBe(429);
+      } finally {
+        abrir();
+        verificar.mockRestore();
+      }
+    }, 30_000);
+  });
+
+  describe('errores 400 con formato por campo', () => {
+    it('un correo mal formado trae el texto del prototipo y el id de la petición', async () => {
+      const r = await pedir(ctx.url, 'POST', '/api/acceso/ingresar', { cuerpo: { correo: 'no-es-un-correo', contrasena: 'x' } });
+      expect(r.estado).toBe(400);
+      expect(r.cuerpo).toEqual({
+        statusCode: 400,
+        message: 'La solicitud tiene datos inválidos',
+        errores: [{ campo: 'correo', mensaje: 'El correo no está completo. Debe tener la forma nombre@dominio.' }],
+        idPeticion: r.cabeceras.get('x-request-id'),
+      });
+    });
+
+    it('correo y contraseña vacíos o ausentes piden cada dato con su propio texto', async () => {
+      const vacios = await pedir(ctx.url, 'POST', '/api/acceso/ingresar', { cuerpo: { correo: '  ', contrasena: '' } });
+      expect(vacios.cuerpo).toMatchObject({
+        errores: expect.arrayContaining([
+          { campo: 'correo', mensaje: 'Escribe tu correo institucional.' },
+          { campo: 'contrasena', mensaje: 'Escribe tu contraseña.' },
+        ]) as unknown[],
+      });
+      const ausentes = await pedir(ctx.url, 'POST', '/api/acceso/ingresar', { cuerpo: {} });
+      expect((ausentes.cuerpo as { errores: unknown[] }).errores).toEqual([
+        { campo: 'correo', mensaje: 'Escribe tu correo institucional.' },
+        { campo: 'contrasena', mensaje: 'Escribe tu contraseña.' },
+      ]);
+    });
+
+    it('una propiedad de más sigue siendo 400, con "Campo no permitido"', async () => {
+      const r = await pedir(ctx.url, 'POST', '/api/acceso/ingresar', { cuerpo: { correo: 'a@ejemplo.cl', contrasena: 'x', rol: 'ADMIN' } });
+      expect(r.estado).toBe(400);
+      expect((r.cuerpo as { errores: unknown[] }).errores).toEqual([{ campo: 'rol', mensaje: 'Campo no permitido' }]);
+    });
+  });
+
   describe('entrada no válida', () => {
     it.each([
       ['correo sin forma de correo', { correo: 'no-es-un-correo', contrasena: 'x' }],

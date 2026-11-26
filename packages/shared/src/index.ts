@@ -7,7 +7,9 @@ export type EstadoRegistro = 'ABIERTO' | 'CERRADO' | 'ANULADO';
 export type { RespuestaSalud } from './salud.js';
 export type {
   Alcance,
+  ErrorValidacion,
   ReferenciaNombrada,
+  RespuestaErrorValidacion,
   RespuestaCredencialesIncorrectas,
   RespuestaCuentaBloqueada,
   Rol,

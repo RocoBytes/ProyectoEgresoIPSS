@@ -49,3 +49,17 @@ export interface RespuestaCuentaBloqueada {
   bloqueadoHasta: string;
   idPeticion?: string;
 }
+
+/** Un campo de un cuerpo rechazado con 400; `campo` usa rutas con puntos para datos anidados. */
+export interface ErrorValidacion {
+  campo: string;
+  mensaje: string;
+}
+
+/** 400 por datos inválidos, en cualquier ruta. */
+export interface RespuestaErrorValidacion {
+  statusCode: 400;
+  message: string;
+  errores: ErrorValidacion[];
+  idPeticion?: string;
+}

@@ -38,6 +38,14 @@ describe('cargarConfiguracion', () => {
     expect(cargarConfiguracion({ ...base, JWT_SECRETO: 'x'.repeat(32) }).jwtSecreto).toBe('x'.repeat(32));
   });
 
+  it('con NODE_ENV=production exige TRUST_PROXY, y sin producción es opcional', () => {
+    expect(() => cargarConfiguracion({ ...base, NODE_ENV: 'production' })).toThrow('Falta la variable de entorno TRUST_PROXY');
+    expect(() => cargarConfiguracion({ ...base, NODE_ENV: 'production', TRUST_PROXY: '' })).toThrow('TRUST_PROXY');
+    expect(cargarConfiguracion({ ...base, NODE_ENV: 'production', TRUST_PROXY: '1' }).saltosProxy).toBe(1);
+    expect(cargarConfiguracion({ ...base, NODE_ENV: 'production', TRUST_PROXY: '0' }).saltosProxy).toBe(0);
+    expect(cargarConfiguracion({ ...base, NODE_ENV: 'development' }).saltosProxy).toBeUndefined();
+  });
+
   it.each(['-1', '1.5', 'true', 'abc', '1e3'])('rechaza TRUST_PROXY=%s', (valor) => {
     expect(() => cargarConfiguracion({ ...base, TRUST_PROXY: valor })).toThrow('TRUST_PROXY');
   });

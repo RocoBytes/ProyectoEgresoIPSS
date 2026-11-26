@@ -13,6 +13,11 @@ export const DURACION_ACCESO_SEGUNDOS = 15 * 60;
 
 const bytesAleatorios = promisify(randomBytes);
 
+/** Lo que el JWT afirma: quién es y a qué sesión (familia de refresh tokens) pertenece. */
+export interface ClaimsAcceso extends UsuarioAutenticado {
+  familia: string;
+}
+
 export interface RefreshGenerado {
   /** Valor que viaja en la cookie; nunca se guarda. */
   token: string;
@@ -32,14 +37,16 @@ export class TokensService {
   }
 
   /**
+   * `familia` va en la claim `sid`: el guard la consulta en cada petición, así cerrar la sesión
+   * invalida el JWT al instante aunque no haya vencido.
    * `tope` es el fin absoluto de la sesión (8 h): el JWT nunca vive más allá, aunque falten
    * menos de 15 minutos. Devuelve también los segundos de vida, que usa la cookie.
    */
-  async emitirAcceso(usuario: UsuarioAutenticado, tope: Date): Promise<{ jwt: string; segundos: number }> {
+  async emitirAcceso(usuario: UsuarioAutenticado, familia: string, tope: Date): Promise<{ jwt: string; segundos: number }> {
     const ahora = this.reloj.ahora();
     const emitidoEn = Math.floor(ahora.getTime() / 1000);
     const segundos = Math.max(0, Math.min(DURACION_ACCESO_SEGUNDOS, Math.floor((tope.getTime() - ahora.getTime()) / 1000)));
-    const jwt = await new SignJWT({ rol: usuario.rol })
+    const jwt = await new SignJWT({ rol: usuario.rol, sid: familia })
       .setProtectedHeader({ alg: 'HS256' })
       .setSubject(usuario.id)
       .setIssuer(EMISOR_JWT)
@@ -51,7 +58,7 @@ export class TokensService {
   }
 
   /** Devuelve null ante cualquier fallo (firma, algoritmo, emisor, audiencia, vencimiento o forma). */
-  async verificarAcceso(jwt: string): Promise<UsuarioAutenticado | null> {
+  async verificarAcceso(jwt: string): Promise<ClaimsAcceso | null> {
     try {
       const { payload } = await jwtVerify(jwt, this.clave, {
         // Lista cerrada: impide que un token declare "none" u otro algoritmo.
@@ -63,8 +70,9 @@ export class TokensService {
       });
       const rol = payload['rol'];
       const esRol = (valor: unknown): valor is Rol => Object.values(Rol).some((r) => r === valor);
-      if (typeof payload.sub !== 'string' || !esRol(rol)) return null;
-      return { id: payload.sub, rol };
+      const sid = payload['sid'];
+      if (typeof payload.sub !== 'string' || !esRol(rol) || typeof sid !== 'string') return null;
+      return { id: payload.sub, rol, familia: sid };
     } catch {
       return null;
     }

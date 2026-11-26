@@ -6,7 +6,7 @@ import type { Rol } from '../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { AlcanceService } from './alcance.service';
 import { ContrasenasService } from './contrasenas.service';
-import { DURACION_BLOQUEO_MS, IntentosDesconocidosService, MAX_INTENTOS } from './intentos-desconocidos.service';
+import { DURACION_BLOQUEO_MS, IntentosDesconocidosService, MAX_INTENTOS, VENTANA_INTENTOS_MS } from './intentos-desconocidos.service';
 import { TokensService } from './tokens.service';
 import type { UsuarioAutenticado } from './usuario-autenticado';
 
@@ -37,9 +37,16 @@ export type ResultadoIngreso =
 
 export type ResultadoRenovacion = { tipo: 'ok'; credenciales: CredencialesDeSesion } | { tipo: 'rechazada' };
 
-interface FilaIntentos {
-  intentos_fallidos: number;
+interface FilaReserva {
+  n: number;
+  ya_bloqueada: boolean;
   bloqueado_hasta: Date | null;
+}
+
+/** `bloqueadoHasta` distinto de null: no se verifica la contraseña, se responde 429. */
+interface Reserva {
+  n: number;
+  bloqueadoHasta: Date | null;
 }
 
 /** Fin de la sesión actual: 15 min de inactividad, pero nunca más de 8 h desde el ingreso. */
@@ -63,34 +70,44 @@ export class AccesoService {
   /**
    * Correo inexistente, contraseña incorrecta y usuario inactivo recorren el mismo camino y
    * dan la misma respuesta, para no revelar qué correos tienen cuenta (ADR 0010).
+   * El intento se RESERVA antes de verificar la contraseña: así una ráfaga de peticiones
+   * paralelas no puede probar más de cinco contraseñas, porque la sexta reserva ya bloquea.
    */
   async ingresar(correo: string, contrasena: string): Promise<ResultadoIngreso> {
     const ahora = this.reloj.ahora();
     const usuario = await this.prisma.usuario.findUnique({
       where: { correo },
-      select: { id: true, rol: true, activo: true, hashContrasena: true, intentosFallidos: true, bloqueadoHasta: true },
+      select: { id: true, rol: true, activo: true, hashContrasena: true },
     });
+    if (usuario === null) return this.ingresarDesconocido(correo, contrasena);
 
-    if (usuario === null) {
-      const hasta = this.intentosDesconocidos.bloqueadoHasta(correo);
-      if (hasta !== null) return { tipo: 'bloqueada', bloqueadoHasta: hasta };
-      await this.contrasenas.verificarContraFicticio(contrasena);
-      const fallo = this.intentosDesconocidos.registrarFallo(correo);
-      return fallo.bloqueado ? { tipo: 'bloqueada', bloqueadoHasta: fallo.bloqueadoHasta } : { tipo: 'credenciales', intentosRestantes: fallo.intentosRestantes };
-    }
-
-    // Con la cuenta bloqueada ni siquiera se mira la contraseña: la correcta tampoco entra.
-    if (usuario.bloqueadoHasta !== null && usuario.bloqueadoHasta > ahora) return { tipo: 'bloqueada', bloqueadoHasta: usuario.bloqueadoHasta };
+    const reserva = await this.reservarIntento(usuario.id, ahora);
+    if (reserva.bloqueadoHasta !== null) return { tipo: 'bloqueada', bloqueadoHasta: reserva.bloqueadoHasta };
 
     const correcta = await this.contrasenas.verificar(usuario.hashContrasena, contrasena);
-    if (!correcta || !usuario.activo) return this.registrarFalloDeUsuario(usuario.id, ahora);
-
-    if (usuario.intentosFallidos !== 0 || usuario.bloqueadoHasta !== null) {
-      await this.prisma.usuario.update({ where: { id: usuario.id }, data: { intentosFallidos: 0, bloqueadoHasta: null } });
+    if (correcta && usuario.activo) {
+      // Condicional: si mientras se verificaba otra petición bloqueó la cuenta, este ingreso no vale.
+      const liberada = await this.prisma.usuario.updateMany({
+        where: { id: usuario.id, OR: [{ bloqueadoHasta: null }, { bloqueadoHasta: { lte: ahora } }] },
+        data: { intentosFallidos: 0, bloqueadoHasta: null, ultimoFalloEn: null },
+      });
+      if (liberada.count === 0) return this.cuentaBloqueada(usuario.id, ahora);
+      const perfil = await this.perfil(usuario.id);
+      if (perfil === null) return { tipo: 'credenciales', intentosRestantes: MAX_INTENTOS - reserva.n };
+      return { tipo: 'ok', usuario: perfil, credenciales: await this.abrirSesion({ id: usuario.id, rol: usuario.rol }, ahora) };
     }
-    const perfil = await this.perfil(usuario.id);
-    if (perfil === null) return { tipo: 'credenciales', intentosRestantes: MAX_INTENTOS };
-    return { tipo: 'ok', usuario: perfil, credenciales: await this.abrirSesion({ id: usuario.id, rol: usuario.rol }, ahora) };
+    if (reserva.n >= MAX_INTENTOS) return this.cuentaBloqueada(usuario.id, ahora);
+    return { tipo: 'credenciales', intentosRestantes: MAX_INTENTOS - reserva.n };
+  }
+
+  private async ingresarDesconocido(correo: string, contrasena: string): Promise<ResultadoIngreso> {
+    const reserva = this.intentosDesconocidos.reservar(correo);
+    if (reserva.yaBloqueado || reserva.bloqueadoHasta !== null) {
+      return { tipo: 'bloqueada', bloqueadoHasta: reserva.bloqueadoHasta ?? this.reloj.ahora() };
+    }
+    await this.contrasenas.verificarContraFicticio(contrasena);
+    if (reserva.n >= MAX_INTENTOS) return { tipo: 'bloqueada', bloqueadoHasta: this.intentosDesconocidos.bloquear(correo) };
+    return { tipo: 'credenciales', intentosRestantes: MAX_INTENTOS - reserva.n };
   }
 
   async renovar(tokenPresentado: string | undefined): Promise<ResultadoRenovacion> {
@@ -110,7 +127,11 @@ export class AccesoService {
       if (fila === null) return null;
 
       if (fila.revocadoEn !== null) {
-        if (ahora.getTime() - fila.revocadoEn.getTime() <= VENTANA_ROTACION_MS) return null;
+        if (ahora.getTime() - fila.revocadoEn.getTime() <= VENTANA_ROTACION_MS) {
+          // Normal con dos pestañas, pero también lo que vería un robo: queda registrado, solo con la familia.
+          this.registro.warn(`Se presentó un refresh token recién rotado dentro de la ventana de ${VENTANA_ROTACION_MS / 1000} s en la familia ${fila.familia}`);
+          return null;
+        }
         // Un token ya rotado que reaparece fuera de la ventana: pudo copiarse. Se cierra toda la sesión.
         await tx.refreshToken.updateMany({ where: { familia: fila.familia, revocadoEn: null }, data: { revocadoEn: ahora } });
         this.registro.warn(`Se reutilizó un refresh token ya rotado; se revocó la familia ${fila.familia}`);
@@ -134,11 +155,11 @@ export class AccesoService {
         data: { usuarioId: fila.usuarioId, hash: nuevo.hash, familia: fila.familia, sesionIniciadaEn: fila.sesionIniciadaEn, expiraEn },
       });
       // El rol se lee de la base ahora, no del JWT anterior: un cambio de rol rige desde esta renovación.
-      return { usuario: { id: fila.usuarioId, rol: fila.usuario.rol }, expiraEn, tope };
+      return { usuario: { id: fila.usuarioId, rol: fila.usuario.rol }, familia: fila.familia, expiraEn, tope };
     });
 
     if (resultado === null) return { tipo: 'rechazada' };
-    const acceso = await this.tokens.emitirAcceso(resultado.usuario, resultado.tope);
+    const acceso = await this.tokens.emitirAcceso(resultado.usuario, resultado.familia, resultado.tope);
     return {
       tipo: 'ok',
       credenciales: {
@@ -176,30 +197,56 @@ export class AccesoService {
   private async abrirSesion(usuario: UsuarioAutenticado, ahora: Date): Promise<CredencialesDeSesion> {
     const refresh = await this.tokens.generarRefresh();
     const expiraEn = expiracion(ahora, ahora);
+    const familia = randomUUID();
     await this.prisma.refreshToken.create({
-      data: { usuarioId: usuario.id, hash: refresh.hash, familia: randomUUID(), sesionIniciadaEn: ahora, expiraEn },
+      data: { usuarioId: usuario.id, hash: refresh.hash, familia, sesionIniciadaEn: ahora, expiraEn },
     });
-    const acceso = await this.tokens.emitirAcceso(usuario, new Date(ahora.getTime() + TOPE_SESION_MS));
+    const acceso = await this.tokens.emitirAcceso(usuario, familia, new Date(ahora.getTime() + TOPE_SESION_MS));
     return { jwt: acceso.jwt, jwtSegundos: acceso.segundos, refresh: refresh.token, refreshSegundos: this.segundosHasta(expiraEn, ahora) };
   }
 
   /**
-   * Un solo UPDATE incrementa y, al llegar al máximo, bloquea y reinicia el contador: dos fallos
-   * simultáneos no pueden leer el mismo valor y perder un intento.
+   * Reserva atómica del intento. Un solo UPDATE (con la fila bloqueada por el FOR UPDATE de la CTE)
+   * aplica el vencimiento de la ventana, incrementa y, si el número reservado supera el máximo,
+   * bloquea y reinicia el contador. La hora la pone el Reloj, nunca `now()`, para que las pruebas la controlen.
    */
-  private async registrarFalloDeUsuario(usuarioId: string, ahora: Date): Promise<ResultadoIngreso> {
-    const bloqueadoHasta = new Date(ahora.getTime() + DURACION_BLOQUEO_MS);
-    const filas = await this.prisma.$queryRaw<FilaIntentos[]>`
-      UPDATE usuario SET
-        intentos_fallidos = CASE WHEN intentos_fallidos + 1 >= ${MAX_INTENTOS}::int THEN 0 ELSE intentos_fallidos + 1 END,
-        bloqueado_hasta = CASE WHEN intentos_fallidos + 1 >= ${MAX_INTENTOS}::int THEN ${bloqueadoHasta}::timestamptz ELSE bloqueado_hasta END
-      WHERE id = ${usuarioId}::uuid
-      RETURNING intentos_fallidos, bloqueado_hasta`;
+  private async reservarIntento(usuarioId: string, ahora: Date): Promise<Reserva> {
+    const inicioVentana = new Date(ahora.getTime() - VENTANA_INTENTOS_MS);
+    const bloqueo = new Date(ahora.getTime() + DURACION_BLOQUEO_MS);
+    const filas = await this.prisma.$queryRaw<FilaReserva[]>`
+      WITH previo AS (
+        SELECT id, bloqueado_hasta AS antes,
+          CASE WHEN ultimo_fallo_en IS NULL OR ultimo_fallo_en < ${inicioVentana}::timestamptz THEN 0 ELSE intentos_fallidos END AS base
+        FROM usuario WHERE id = ${usuarioId}::uuid FOR UPDATE
+      )
+      UPDATE usuario u SET
+        intentos_fallidos = CASE
+          WHEN p.antes > ${ahora}::timestamptz THEN u.intentos_fallidos
+          WHEN p.base + 1 > ${MAX_INTENTOS}::int THEN 0
+          ELSE p.base + 1 END,
+        bloqueado_hasta = CASE
+          WHEN p.antes > ${ahora}::timestamptz THEN u.bloqueado_hasta
+          WHEN p.base + 1 > ${MAX_INTENTOS}::int THEN ${bloqueo}::timestamptz
+          ELSE u.bloqueado_hasta END,
+        ultimo_fallo_en = CASE WHEN p.antes > ${ahora}::timestamptz THEN u.ultimo_fallo_en ELSE ${ahora}::timestamptz END
+      FROM previo p WHERE u.id = p.id
+      RETURNING p.base + 1 AS n, COALESCE(p.antes > ${ahora}::timestamptz, false) AS ya_bloqueada, u.bloqueado_hasta`;
     const fila = filas[0];
-    if (fila === undefined) return { tipo: 'credenciales', intentosRestantes: MAX_INTENTOS };
-    // El contador vuelve a 0 solo cuando este fallo activó el bloqueo.
-    if (fila.intentos_fallidos === 0 && fila.bloqueado_hasta !== null) return { tipo: 'bloqueada', bloqueadoHasta: fila.bloqueado_hasta };
-    return { tipo: 'credenciales', intentosRestantes: MAX_INTENTOS - fila.intentos_fallidos };
+    if (fila === undefined) return { n: 1, bloqueadoHasta: null };
+    const bloqueada = fila.ya_bloqueada || fila.n > MAX_INTENTOS;
+    return { n: fila.n, bloqueadoHasta: bloqueada ? fila.bloqueado_hasta : null };
+  }
+
+  /** El intento número 5 falló, o un ingreso correcto llegó con la cuenta ya bloqueada: devuelve el bloqueo vigente (o lo crea). */
+  private async cuentaBloqueada(usuarioId: string, ahora: Date): Promise<ResultadoIngreso> {
+    const bloqueo = new Date(ahora.getTime() + DURACION_BLOQUEO_MS);
+    const filas = await this.prisma.$queryRaw<{ bloqueado_hasta: Date }[]>`
+      UPDATE usuario SET
+        intentos_fallidos = CASE WHEN bloqueado_hasta > ${ahora}::timestamptz THEN intentos_fallidos ELSE 0 END,
+        bloqueado_hasta = CASE WHEN bloqueado_hasta > ${ahora}::timestamptz THEN bloqueado_hasta ELSE ${bloqueo}::timestamptz END
+      WHERE id = ${usuarioId}::uuid
+      RETURNING bloqueado_hasta`;
+    return { tipo: 'bloqueada', bloqueadoHasta: filas[0]?.bloqueado_hasta ?? bloqueo };
   }
 
   private segundosHasta(fin: Date, desde: Date): number {

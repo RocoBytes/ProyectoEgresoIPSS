@@ -11,6 +11,8 @@ class RelojControlable implements Reloj {
   }
 }
 
+const MIN = 60_000;
+
 describe('IntentosDesconocidosService', () => {
   let reloj: RelojControlable;
   let servicio: IntentosDesconocidosService;
@@ -20,42 +22,50 @@ describe('IntentosDesconocidosService', () => {
     servicio = new IntentosDesconocidosService(reloj);
   });
 
-  it('cuenta cuatro fallos y bloquea 15 minutos en el quinto, igual que una cuenta real', () => {
-    const restantes = [1, 2, 3, 4].map(() => servicio.registrarFallo('a@x.cl'));
-    expect(restantes).toEqual([4, 3, 2, 1].map((n) => ({ bloqueado: false, intentosRestantes: n })));
-    const quinto = servicio.registrarFallo('a@x.cl');
-    expect(quinto).toEqual({ bloqueado: true, bloqueadoHasta: new Date(reloj.ahora().getTime() + 15 * 60_000) });
-    expect(servicio.bloqueadoHasta('a@x.cl')).toEqual(new Date(reloj.ahora().getTime() + 15 * 60_000));
+  it('reserva 1 a 5 sin bloquear; el quinto fallo bloquea 15 minutos', () => {
+    const numeros = [1, 2, 3, 4, 5].map(() => servicio.reservar('a@x.cl'));
+    expect(numeros).toEqual([1, 2, 3, 4, 5].map((n) => ({ yaBloqueado: false, n, bloqueadoHasta: null })));
+    const hasta = servicio.bloquear('a@x.cl');
+    expect(hasta).toEqual(new Date(reloj.ahora().getTime() + 15 * MIN));
+    expect(servicio.reservar('a@x.cl')).toEqual({ yaBloqueado: true, bloqueadoHasta: hasta });
+  });
+
+  it('un sexto intento reservado antes del fallo del quinto bloquea en el mismo paso', () => {
+    for (let i = 0; i < 5; i++) servicio.reservar('a@x.cl');
+    const sexto = servicio.reservar('a@x.cl');
+    expect(sexto).toEqual({ yaBloqueado: false, n: 6, bloqueadoHasta: new Date(reloj.ahora().getTime() + 15 * MIN) });
+    expect(servicio.reservar('a@x.cl')).toMatchObject({ yaBloqueado: true });
   });
 
   it('el bloqueo termina a los 15 minutos y el conteo vuelve a empezar', () => {
-    for (let i = 0; i < 5; i++) servicio.registrarFallo('a@x.cl');
-    reloj.avanzar(15 * 60_000);
-    expect(servicio.bloqueadoHasta('a@x.cl')).toBeNull();
-    expect(servicio.registrarFallo('a@x.cl')).toEqual({ bloqueado: false, intentosRestantes: 4 });
+    for (let i = 0; i < 6; i++) servicio.reservar('a@x.cl');
+    reloj.avanzar(15 * MIN);
+    expect(servicio.reservar('a@x.cl')).toMatchObject({ yaBloqueado: false, n: 1 });
   });
 
-  it('los intentos sin bloqueo se olvidan tras 15 minutos de calma', () => {
-    servicio.registrarFallo('a@x.cl');
-    servicio.registrarFallo('a@x.cl');
-    reloj.avanzar(15 * 60_000 + 1);
-    expect(servicio.registrarFallo('a@x.cl')).toEqual({ bloqueado: false, intentosRestantes: 4 });
+  it('el conteo se reinicia solo si el intento anterior tiene MÁS de 15 minutos', () => {
+    servicio.reservar('a@x.cl');
+    servicio.reservar('a@x.cl');
+    reloj.avanzar(15 * MIN);
+    expect(servicio.reservar('a@x.cl')).toMatchObject({ n: 3 });
+    reloj.avanzar(15 * MIN + 1);
+    expect(servicio.reservar('a@x.cl')).toMatchObject({ n: 1 });
   });
 
   it('cada correo lleva su propia cuenta', () => {
-    servicio.registrarFallo('a@x.cl');
-    expect(servicio.registrarFallo('b@x.cl')).toEqual({ bloqueado: false, intentosRestantes: 4 });
+    servicio.reservar('a@x.cl');
+    expect(servicio.reservar('b@x.cl')).toMatchObject({ n: 1 });
   });
 
   it('no crece sin límite: al llenarse descarta primero lo vencido y después lo más antiguo', () => {
-    for (let i = 0; i < 10_000; i++) servicio.registrarFallo(`n${i}@x.cl`);
+    for (let i = 0; i < 10_000; i++) servicio.reservar(`n${i}@x.cl`);
     expect(servicio.tamano).toBe(10_000);
-    servicio.registrarFallo('nuevo@x.cl');
+    servicio.reservar('nuevo@x.cl');
     expect(servicio.tamano).toBe(10_000);
     // La más antigua se perdió: vuelve a contar desde cero. Es el costo aceptado del tope (ADR 0010).
-    expect(servicio.registrarFallo('n0@x.cl')).toEqual({ bloqueado: false, intentosRestantes: 4 });
-    reloj.avanzar(15 * 60_000 + 1);
-    servicio.registrarFallo('despues@x.cl');
+    expect(servicio.reservar('n0@x.cl')).toMatchObject({ n: 1 });
+    reloj.avanzar(15 * MIN + 1);
+    servicio.reservar('despues@x.cl');
     expect(servicio.tamano).toBe(1);
   });
 });

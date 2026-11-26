@@ -113,6 +113,7 @@ model Usuario {
   proveedorIdentidad    String?           @map("proveedor_identidad")
   intentosFallidos      Int               @default(0) @map("intentos_fallidos")
   bloqueadoHasta        DateTime?         @map("bloqueado_hasta") @db.Timestamptz(3)
+  ultimoFalloEn         DateTime?         @map("ultimo_fallo_en") @db.Timestamptz(3)
   creadoEn              DateTime          @default(now()) @map("creado_en") @db.Timestamptz(3)
   sectores              UsuarioSector[]
   carreras              UsuarioCarrera[]

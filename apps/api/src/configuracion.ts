@@ -38,6 +38,11 @@ export function cargarConfiguracion(entorno: Entorno): Configuracion {
   }
   const puerto = entorno['PORT'];
   const proxy = entorno['TRUST_PROXY'];
+  // En producción siempre hay un proxy delante (Caddy). Sin declararlo, `req.ip` sería la IP del proxy
+  // y el límite por IP bloquearía a todos juntos; con un valor erróneo, la IP se podría falsear.
+  if (entorno['NODE_ENV'] === 'production' && (proxy === undefined || proxy === '')) {
+    throw new Error('Falta la variable de entorno TRUST_PROXY (saltos de proxy confiables; 1 detrás de Caddy) con NODE_ENV=production');
+  }
   return {
     urlBaseDeDatos: url,
     puerto: puerto === undefined || puerto === '' ? 3000 : enteroNoNegativo('PORT', puerto),

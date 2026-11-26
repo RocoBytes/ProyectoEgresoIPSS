@@ -204,7 +204,7 @@ describe('traducción de errores de la base y de la entrada (e2e contra PostgreS
   it('una propiedad de más en el cuerpo responde 400 (forbidNonWhitelisted)', async () => {
     const r = await enviar('POST', 'dto', JSON.stringify({ nombre: 'a', intruso: 1 }));
     expect(r.estado).toBe(400);
-    expect(r.cuerpo.message).toEqual(['property intruso should not exist']);
+    expect(r.cuerpo).toMatchObject({ message: 'La solicitud tiene datos inválidos', errores: [{ campo: 'intruso', mensaje: 'Campo no permitido' }] });
     expect(r.cuerpo.idPeticion).toBeDefined();
   });
 

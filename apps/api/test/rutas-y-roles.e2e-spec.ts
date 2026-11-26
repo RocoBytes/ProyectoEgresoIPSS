@@ -4,7 +4,7 @@ import { Test } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 import { CLAVE_PUBLICA, CLAVE_ROLES, Publica, Roles, TODOS_LOS_ROLES } from '../src/acceso/roles';
 import { CONFIGURACION, type Configuracion } from '../src/configuracion';
-import { crearUsuario, ingresar, levantarApp, pedir, sesionDe, cookiesDe, JWT_SECRETO_PRUEBAS, URL_API, type AppDePruebas, type RolPrueba } from './ayudas/acceso';
+import { conMigrador, crearUsuario, ingresar, levantarApp, pedir, sesionDe, cookiesDe, JWT_SECRETO_PRUEBAS, URL_API, type AppDePruebas, type RolPrueba } from './ayudas/acceso';
 
 // Controlador solo de pruebas, registrado únicamente en este módulo de testing.
 @Controller('pruebas-roles')
@@ -110,6 +110,27 @@ describe('guards de roles (e2e)', () => {
   it('sin sesión, una ruta con @Roles responde 401 y no 403', async () => {
     expect(await llamar('solo-carrera')).toBe(401);
     expect(await llamar('todos')).toBe(401);
+  });
+
+  it('un cambio de rol en la base rige en la petición siguiente, con el mismo JWT', async () => {
+    const usuario = await crearUsuario('DIRECTOR_CARRERA');
+    const cookies = cookiesDe(sesionDe(await ingresar(ctx.url, usuario)));
+    const solo = (): Promise<number> => pedir(ctx.url, 'GET', '/api/pruebas-roles/solo-carrera', { cookies }).then((r) => r.estado);
+    expect(await solo()).toBe(200);
+
+    await conMigrador((c) => c.query(`UPDATE usuario SET rol = 'ASEGURAMIENTO_CALIDAD' WHERE id = $1`, [usuario.id]));
+    expect(await solo()).toBe(403);
+
+    await conMigrador((c) => c.query(`UPDATE usuario SET rol = 'DIRECTOR_CARRERA' WHERE id = $1`, [usuario.id]));
+    expect(await solo()).toBe(200);
+  });
+
+  it('desactivar al usuario corta el acceso a rutas protegidas en la petición siguiente', async () => {
+    const usuario = await crearUsuario('DIRECTOR_CARRERA');
+    const cookies = cookiesDe(sesionDe(await ingresar(ctx.url, usuario)));
+    expect((await pedir(ctx.url, 'GET', '/api/pruebas-roles/todos', { cookies })).estado).toBe(200);
+    await conMigrador((c) => c.query('UPDATE usuario SET activo = false WHERE id = $1', [usuario.id]));
+    expect((await pedir(ctx.url, 'GET', '/api/pruebas-roles/todos', { cookies })).estado).toBe(401);
   });
 
   it('TODOS_LOS_ROLES admite a los tres perfiles', async () => {

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { SignJWT, UnsecuredJWT, decodeJwt } from 'jose';
 import type { UsuarioActual } from '@ipss/shared';
 import { AlcanceService } from '../src/acceso/alcance.service';
+import { MENSAJE_LIMITE_POR_IP } from '../src/acceso/limite-por-ip.guard';
 import {
   COOKIE_ACCESO,
   COOKIE_RENOVACION,
@@ -179,26 +180,34 @@ describe('sesión: /yo, renovar y salir (e2e contra PostgreSQL real)', () => {
       expect((await yo(sesion)).estado).toBe(401);
     });
 
-    it('rechaza JWT sin firma, de otro secreto, de otra audiencia o de otro algoritmo', async () => {
+    it('rechaza JWT sin firma, sin sid, de otro secreto, de otra audiencia o de otro algoritmo', async () => {
       const usuario = await crearUsuario('DIRECTOR_CARRERA');
+      await iniciar(usuario);
+      const familia = (await filasDe(usuario))[0]?.familia ?? '';
       const ahora = Math.floor(ctx.reloj.ahora().getTime() / 1000);
-      const firmar = (alg: string, opciones: { aud?: string; clave?: Uint8Array } = {}): Promise<string> =>
-        new SignJWT({ rol: 'DIRECTOR_CARRERA' })
+      const firmar = (alg: string, opciones: { aud?: string; clave?: Uint8Array; sid?: string | null } = {}): Promise<string> =>
+        new SignJWT({ rol: 'DIRECTOR_CARRERA', ...(opciones.sid === null ? {} : { sid: opciones.sid ?? familia }) })
           .setProtectedHeader({ alg })
           .setSubject(usuario.id)
           .setIssuer('ipss-api')
           .setAudience(opciones.aud ?? 'ipss-web')
           .setExpirationTime(ahora + 900)
           .sign(opciones.clave ?? clave);
-      const sinFirma = new UnsecuredJWT({ rol: 'DIRECTOR_CARRERA' }).setSubject(usuario.id).setIssuer('ipss-api').setAudience('ipss-web').setExpirationTime(ahora + 900).encode();
+      const sinFirma = new UnsecuredJWT({ rol: 'DIRECTOR_CARRERA', sid: familia }).setSubject(usuario.id).setIssuer('ipss-api').setAudience('ipss-web').setExpirationTime(ahora + 900).encode();
 
       expect((await yoConCookies({ [COOKIE_ACCESO]: await firmar('HS256') })).estado).toBe(200);
-      for (const jwt of [sinFirma, await firmar('HS256', { clave: new TextEncoder().encode('otro-secreto-de-pruebas-de-al-menos-32-caracteres') }), await firmar('HS256', { aud: 'otra' }), await firmar('HS384')]) {
-        expect((await yoConCookies({ [COOKIE_ACCESO]: jwt })).estado).toBe(401);
-      }
+      const invalidos = [
+        sinFirma,
+        await firmar('HS256', { sid: null }),
+        await firmar('HS256', { sid: randomUUID() }),
+        await firmar('HS256', { clave: new TextEncoder().encode('otro-secreto-de-pruebas-de-al-menos-32-caracteres') }),
+        await firmar('HS256', { aud: 'otra' }),
+        await firmar('HS384'),
+      ];
+      for (const jwt of invalidos) expect((await yoConCookies({ [COOKIE_ACCESO]: jwt })).estado).toBe(401);
     });
 
-    it('un usuario desactivado deja de recibir /yo aunque su JWT siga vigente', async () => {
+    it('un usuario desactivado recibe 401 al instante con un JWT todavía vigente', async () => {
       const usuario = await crearUsuario('DIRECTOR_CARRERA');
       const sesion = await iniciar(usuario);
       await conMigrador((c) => c.query('UPDATE usuario SET activo = false WHERE id = $1', [usuario.id]));
@@ -232,12 +241,10 @@ describe('sesión: /yo, renovar y salir (e2e contra PostgreSQL real)', () => {
       expect((await yo(segunda)).estado).toBe(200);
     });
 
-    it('el JWT nuevo lleva el rol que la base tiene ahora', async () => {
+    it('el JWT nuevo lleva el rol que la base tiene ahora (los guards ya leen el rol de la base en cada petición)', async () => {
       const usuario = await crearUsuario('DIRECTOR_CARRERA');
       const sesion = await iniciar(usuario);
       await conMigrador((c) => c.query(`UPDATE usuario SET rol = 'ASEGURAMIENTO_CALIDAD' WHERE id = $1`, [usuario.id]));
-      // El JWT ya emitido conserva el rol viejo hasta que se renueve: así lo evalúan los guards.
-      expect(decodeJwt(sesion.acceso)).toMatchObject({ rol: 'DIRECTOR_CARRERA' });
 
       const nueva = sesionDe(await renovar(sesion));
       expect(decodeJwt(nueva.acceso)).toMatchObject({ rol: 'ASEGURAMIENTO_CALIDAD' });
@@ -364,6 +371,16 @@ describe('sesión: /yo, renovar y salir (e2e contra PostgreSQL real)', () => {
       expect((await renovar(segunda)).estado).toBe(401);
     });
 
+    it('la cookie de acceso copiada antes de salir deja de servir al instante, sin esperar a que venza', async () => {
+      const usuario = await crearUsuario('DIRECTOR_CARRERA');
+      const sesion = await iniciar(usuario);
+      expect((await yo(sesion)).estado).toBe(200);
+
+      await salir(sesion);
+
+      expect((await yo(sesion)).estado).toBe(401);
+    });
+
     it('sin cookie o con un token desconocido también responde 204 y borra las cookies', async () => {
       const sinCookie = await salir(undefined);
       expect(sinCookie.estado).toBe(204);
@@ -383,6 +400,20 @@ describe('sesión: /yo, renovar y salir (e2e contra PostgreSQL real)', () => {
       expect((await renovar(otraSesion)).estado).toBe(204);
       expect((await renovar(deOtro)).estado).toBe(204);
     });
+  });
+
+  describe('límite por IP en renovar y salir', () => {
+    it.each(['renovar', 'salir'])('/%s admite 60 por IP en 15 minutos y la 61 recibe 429 con el mensaje por IP', async (ruta) => {
+      const ip = ruta === 'renovar' ? '198.51.100.31' : '198.51.100.32';
+      const estados: number[] = [];
+      for (let i = 0; i < 60; i++) estados.push((await pedir(ctx.url, 'POST', `/api/acceso/${ruta}`, { ip })).estado);
+      expect(new Set(estados)).toEqual(new Set([ruta === 'renovar' ? 401 : 204]));
+
+      const excedida = await pedir(ctx.url, 'POST', `/api/acceso/${ruta}`, { ip });
+      expect(excedida.estado).toBe(429);
+      expect(excedida.cuerpo).toMatchObject({ statusCode: 429, message: MENSAJE_LIMITE_POR_IP });
+      expect((await pedir(ctx.url, 'POST', `/api/acceso/${ruta}`, { ip: '198.51.100.33' })).estado).not.toBe(429);
+    }, 30_000);
   });
 
   it('el token de renovación viaja solo en su cookie y nunca en el cuerpo', async () => {

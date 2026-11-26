@@ -13,6 +13,8 @@ import { UsuarioActual, type UsuarioAutenticado } from './usuario-autenticado';
 
 const LIMITE_POR_IP = 20;
 const VENTANA_POR_IP_MS = 15 * 60_000;
+// Renovar y salir no hashean contraseñas, así que admiten más; el límite solo frena el abuso.
+const LIMITE_SESION_POR_IP = 60;
 
 function cookieDeRenovacion(peticion: Request): string | undefined {
   const valor = (peticion.cookies as Record<string, unknown> | undefined)?.[COOKIE_RENOVACION];
@@ -66,6 +68,8 @@ export class AccesoController {
 
   // Pública: se llama cuando el JWT ya venció. Se autentica con la cookie de renovación (ADR 0009).
   @Publica()
+  @UseGuards(LimitePorIpGuard)
+  @Throttle({ default: { limit: LIMITE_SESION_POR_IP, ttl: VENTANA_POR_IP_MS } })
   @Post('renovar')
   @HttpCode(HttpStatus.NO_CONTENT)
   async renovar(@Req() peticion: Request, @Res({ passthrough: true }) respuesta: Response): Promise<void> {
@@ -78,6 +82,8 @@ export class AccesoController {
 
   // Pública: cerrar sesión con un JWT vencido tiene que funcionar igual.
   @Publica()
+  @UseGuards(LimitePorIpGuard)
+  @Throttle({ default: { limit: LIMITE_SESION_POR_IP, ttl: VENTANA_POR_IP_MS } })
   @Post('salir')
   @HttpCode(HttpStatus.NO_CONTENT)
   async salir(@Req() peticion: Request, @Res({ passthrough: true }) respuesta: Response): Promise<void> {
