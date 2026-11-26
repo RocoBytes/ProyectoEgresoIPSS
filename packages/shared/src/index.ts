@@ -25,6 +25,7 @@ export type {
   FiltroEstado,
   OtroRegistroDeSesion,
   RespuestaAnios,
+  RespuestaCambioEstado,
   RespuestaEdicion,
   RespuestaListadoRegistros,
 } from './registros.js';
