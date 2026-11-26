@@ -8,7 +8,8 @@
     "generar": "prisma generate",
     "migrar": "prisma migrate deploy",
     "test:bd": "node test/bd/ejecutar.mjs",
-    "start": "node dist/main.js"
+    "start": "node --env-file-if-exists=.env dist/main.js",
+    "test": "jest --runInBand"
   },
   "dependencies": {
     "@nestjs/common": "11.2.9",
@@ -30,11 +31,36 @@
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
+    "@nestjs/testing": "11.2.9",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.0",
+    "@types/jest": "30.0.0",
     "@types/multer": "^2.0.0",
     "@types/node": "^24.0.0",
     "@types/pg": "^8.11.0",
+    "jest": "30.5.2",
+    "ts-jest": "29.4.15",
     "typescript": "5.9.3"
+  },
+  "jest": {
+    "rootDir": ".",
+    "testEnvironment": "node",
+    "testRegex": "(src/.*\\.spec|test/.*\\.e2e-spec)\\.ts$",
+    "transform": {
+      "^.+\\.ts$": [
+        "ts-jest",
+        {
+          "tsconfig": "tsconfig.json",
+          "diagnostics": {
+            "ignoreCodes": [
+              151002
+            ]
+          }
+        }
+      ]
+    },
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.js$": "$1"
+    }
   }
 }

@@ -41,3 +41,5 @@ La auditoría del 26-11-2026 encontró además una vulnerabilidad en `effect` 3.
 - Cambiar de versión `argon2` o Prisma exige volver a aprobar su script con `npm install-scripts approve`. Es una revisión deliberada, no un error.
 - `npm ci` respeta el lockfile y no vuelve a aplicar la regla de días. La protección actúa cuando se agregan o actualizan dependencias, y por eso Dependabot usa la misma espera.
 - Estas defensas exigen npm 11.20 o superior, que viene con Node 26.13.1.
+- Los hallazgos de severidad moderada en `glob` y `minimatch` de Jest son solo de desarrollo, no llegan a las imágenes y exigen patrones glob maliciosos para explotarse. La única corrección que ofrece npm es bajar a Jest 29. Se aceptan, y CI bloquea solo con `npm audit --omit=dev`.
+- `@parcel/watcher` (que trae `jest-haste-map`) está denegado en `allowScripts`: su script de instalación compila desde el código fuente, y funciona con su binario precompilado. Solo el modo `--watch` de Jest depende de él y no se usa.

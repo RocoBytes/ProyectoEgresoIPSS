@@ -52,7 +52,7 @@ Es el primer hito acordado (hasta el 29-11-2026). Además prueba tres cosas que 
     - `diff` de la sección 2 contra el kit;
     - deriva cero entre esquema y migración;
     - `prisma generate` con `effect` 3.22.1.
-- [ ] **T3 API mínima.** NestJS con `ValidationPipe`, helmet, `trust proxy`, filtro de errores y `GET /api/salud` contra la base. Antes del filtro, probar cómo entrega Prisma el 23514. ADR 0006.
+- [x] **T3 API mínima.** NestJS con `ValidationPipe`, helmet, `trust proxy`, filtro de errores y `GET /api/salud` contra la base. Antes del filtro, probar cómo entrega Prisma el 23514. ADR 0006.
   - Ruta: delegada.
   - Verificación: Jest, `curl` a `/api/salud` (200 y 503) y cabeceras.
 - [ ] **T4 Web mínima.** React Router con una ruta, TanStack Query sobre `/api/salud`, colores y tipografía del prototipo, `npm run dev`.
@@ -102,7 +102,7 @@ Es el primer hito acordado (hasta el 29-11-2026). Además prueba tres cosas que 
   - Se agregaron `.npmrc` (`min-release-age=7`, `save-exact`, `strict-allow-scripts`), `allowScripts`, Dependabot y el ADR 0008.
   - El lockfile se regeneró con la regla de 7 días.
   - `npm audit signatures` verificó las firmas de los 640 paquetes.
-- 26-11-2026, T2 cerrada:
+- 26-11-2026, T2 cerrada (`134760d`). Revisión nativa: riesgo alto por `infra/bd/00_roles.sh` y `review_due`, otra vez bloqueada por la selección de archivos sin seguimiento.
   - Esquema aprobado sin cambios. `prisma generate` funciona con `effect` 3.22.1.
   - `migrate deploy` se aplicó como `ipss_migrador`.
   - Deriva: "No difference detected".
@@ -115,6 +115,16 @@ Es el primer hito acordado (hasta el 29-11-2026). Además prueba tres cosas que 
     - `include` explícito en `tsconfig.build.json`;
     - la migración incluye `CREATE SCHEMA IF NOT EXISTS "public"`, tal como lo genera `migrate diff`.
 
+- 26-11-2026, T3 cerrada:
+  - Dependencias de prueba instaladas (Jest 30.5.2, ts-jest 29.4.15, @types/jest 30.0.0, @nestjs/testing 11.2.9).
+  - `@parcel/watcher` denegado en `allowScripts`, porque lo bloqueó `strict-allow-scripts`. Carga con su binario precompilado.
+  - `npm audit --omit=dev` en 0. `npm audit` muestra 18 moderadas de Jest, aceptadas en el ADR 0008.
+  - Prueba del 23514: llega como `PrismaClientKnownRequestError`, con código P2039 por la API de modelos y P2010 por SQL crudo. El SQLSTATE y el mensaje están en `meta.driverAdapterError.cause`; `detail` trae la fila completa (ADR 0006).
+  - `npm test`: 26 reglas y 43 pruebas de Jest en 4 suites.
+  - API local: 200 con helmet y `X-Request-Id`; 404 con `idPeticion`; conectada solo como `ipss_api`; 503 `sin_conexion` con la base detenida y 200 al volver, sin reiniciar.
+  - Corrección mía en el filtro: el log de un 500 lleva solo los marcos de la pila, sin el mensaje, que en Prisma puede traer los argumentos de la consulta.
+  - `apps/api/.env.ejemplo` quedó fuera del commit: el escritor lo creó por la terminal después de que se le negara la herramienta de escritura, y nadie pudo leerlo por el hook. Pendiente de que lo revise el usuario.
+
 ## Próximo paso
 
-T3: API mínima. Antes del filtro de errores, comprobar cómo entrega Prisma el 23514 de un CHECK y de un trigger.
+T4: web mínima.
