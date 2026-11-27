@@ -68,6 +68,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+const AVISO_100_MB = 'El envío supera los 100 MB en total. Adjunta menos fotos o reduce su tamaño.';
+
 describe('PaginaNuevaSesion', () => {
   it('un formulario vacío muestra cada mensaje de validación', async () => {
     preparar(todas);
@@ -234,6 +236,18 @@ describe('PaginaNuevaSesion', () => {
     expect((await screen.findAllByText('El envío supera los 100 MB en total. Adjunta menos fotos o reduce su tamaño.')).length).toBeGreaterThan(0);
     expect(screen.queryByRole('dialog', { name: 'Guardar la sesión' })).toBeNull();
     expect(api.llamadas).not.toContain('POST /api/sesiones');
+  });
+
+  it('el aviso de los 100 MB desaparece al quitar fotos y no queda colgado de otra zona', async () => {
+    preparar(soloInformatica);
+    await screen.findByRole('button', { name: 'Guardar sesión' });
+    const MB = 1024 * 1024;
+    adjuntar('Fotografías de la sesión', ...[1, 2, 3, 4, 5].map((n) => archivo(`f${String(n)}.jpg`, 20 * MB)));
+    await llenarValido();
+    expect((await screen.findAllByText(AVISO_100_MB)).length).toBeGreaterThan(0);
+    // Quitar una foto cambia el conjunto: el aviso describía el envío anterior.
+    fireEvent.click(screen.getByRole('button', { name: 'Quitar f5.jpg' }));
+    expect(screen.queryAllByText(AVISO_100_MB)).toHaveLength(0);
   });
 
   it('un 413 sin cuerpo (proxy) muestra el mismo mensaje del envío demasiado grande', async () => {

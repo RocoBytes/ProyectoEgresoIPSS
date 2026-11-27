@@ -25,6 +25,8 @@ export type {
   FiltroEstado,
   OtroRegistroDeSesion,
   RespuestaAnios,
+  RespuestaCambioEstado,
   RespuestaEdicion,
   RespuestaListadoRegistros,
 } from './registros.js';
+export type { ConteoPorEstado, IndicadoresPanel, PanelAnio, PanelCanal, PanelGrupo, PanelMes, PanelNivel, PanelSesion, RespuestaPanel } from './reportes.js';

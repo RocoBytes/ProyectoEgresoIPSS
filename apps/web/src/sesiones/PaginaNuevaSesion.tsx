@@ -12,15 +12,16 @@ import { fechaTexto, hoyEnSantiago } from '../comun/fecha-texto';
 import { Icono } from '../comun/Icono';
 import { etiquetaNivel, NIVELES } from '../comun/niveles';
 import { plural } from '../comun/plural';
-import { tamanoTexto } from '../comun/tamano';
 import { Boton } from '../comun/ui/Boton';
 import { AreaTexto, Campo, Entrada, Selector } from '../comun/ui/Campo';
 import { Dialogo } from '../comun/ui/Dialogo';
 import { Folio, Tarjeta } from '../comun/ui/Marcas';
 import { crearSesion, obtenerCatalogos, obtenerObjetos } from './api';
-import { envioExcedeElTope, MENSAJE_ENVIO_GRANDE, validarArchivo, type DestinoArchivo } from './archivos';
+import { validarArchivo, type DestinoArchivo } from '../comun/archivos';
+import { FilaArchivo } from '../comun/FilaArchivo';
+import { ZonaArchivo } from '../comun/ZonaArchivo';
+import { envioExcedeElTope, MENSAJE_ENVIO_GRANDE } from './archivos';
 import { conPrefijoRegistro, crearEsquemaSesion, esPerfil, type RegistroForm, type SesionForm } from './esquema';
-import { ZonaArchivo } from './ZonaArchivo';
 
 const registroVacio = (sectorId = '', carreraId = ''): RegistroForm => ({
   sectorId,
@@ -363,6 +364,8 @@ function FormularioSesion({ usuario, catalogos }: { usuario: UsuarioActual; cata
       const mensaje = validarArchivo(archivo.name, archivo.size, destino);
       setRechazo(mensaje);
       if (mensaje !== null) return;
+      // El aviso del tope de 100 MB describe el conjunto anterior: cualquier cambio de archivos lo deja obsoleto.
+      setErrorEnvio(null);
       if (destino === 'acta') {
         setActa(archivo);
         setErrorActa(null);
@@ -617,7 +620,13 @@ function FormularioSesion({ usuario, catalogos }: { usuario: UsuarioActual; cata
               <span className="text-[13px] font-semibold text-navy">Acta de la sesión</span>
               {acta !== null ? (
                 <ul className="grid gap-1.5">
-                  <FilaArchivo archivo={acta} alQuitar={() => setActa(null)} />
+                  <FilaArchivo
+                    archivo={acta}
+                    alQuitar={() => {
+                      setActa(null);
+                      setErrorEnvio(null);
+                    }}
+                  />
                 </ul>
               ) : (
                 <ZonaArchivo
@@ -643,7 +652,10 @@ function FormularioSesion({ usuario, catalogos }: { usuario: UsuarioActual; cata
                       key={`${f.name}-${String(i)}`}
                       archivo={f}
                       error={errorsFotos[`fotos.${String(i)}`]}
-                      alQuitar={() => setFotos((a) => a.filter((_, j) => j !== i))}
+                      alQuitar={() => {
+                        setFotos((a) => a.filter((_, j) => j !== i));
+                        setErrorEnvio(null);
+                      }}
                     />
                   ))}
                 </ul>
@@ -735,22 +747,6 @@ function FormularioSesion({ usuario, catalogos }: { usuario: UsuarioActual; cata
         )}
       </Dialogo>
     </section>
-  );
-}
-
-function FilaArchivo({ archivo, error, alQuitar }: { archivo: File; error?: string; alQuitar: () => void }) {
-  return (
-    <li className="grid gap-1">
-      <div className="flex items-center justify-between gap-3 rounded-s border border-borde bg-superficie-2 px-3 py-2 text-[13px]">
-        <span className="min-w-0 [overflow-wrap:anywhere]">
-          <b>{archivo.name}</b> <span className="text-texto-2">{tamanoTexto(archivo.size)}</span>
-        </span>
-        <Boton variante="icono" aria-label={`Quitar ${archivo.name}`} onClick={alQuitar}>
-          <Icono nombre="x" />
-        </Boton>
-      </div>
-      {error !== undefined && <p className="text-[12.5px] font-medium text-error">{error}</p>}
-    </li>
   );
 }
 

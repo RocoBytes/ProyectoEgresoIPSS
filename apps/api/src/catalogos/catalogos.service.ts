@@ -3,8 +3,12 @@ import type { RespuestaCatalogos, RespuestaObjetosCarrera } from '@ipss/shared';
 import { deFechaBd } from '../comun/fecha-texto';
 import { PrismaService } from '../prisma/prisma.service';
 
-const porNombre = (a: { nombre: string }, b: { nombre: string }): number => a.nombre.localeCompare(b.nombre, 'es');
+export const porNombre = (a: { nombre: string }, b: { nombre: string }): number => a.nombre.localeCompare(b.nombre, 'es');
 const NOMBRE_OTRO = 'Otro';
+
+/** Orden de los canales en toda la API: alfabético y «Otro» siempre al final. */
+export const ordenarCanales = <T extends { nombre: string }>(canales: T[]): T[] =>
+  canales.sort((a, b) => (a.nombre === NOMBRE_OTRO ? 1 : b.nombre === NOMBRE_OTRO ? -1 : porNombre(a, b)));
 
 @Injectable()
 export class CatalogosService {
@@ -17,7 +21,7 @@ export class CatalogosService {
       this.prisma.canal.findMany({ where: { activo: true }, select: { id: true, nombre: true } }),
     ]);
     // Orden en JS y no en la base: no depende de la colación de PostgreSQL. «Otro» siempre al final.
-    canales.sort((a, b) => (a.nombre === NOMBRE_OTRO ? 1 : b.nombre === NOMBRE_OTRO ? -1 : porNombre(a, b)));
+    ordenarCanales(canales);
     return { sectores: sectores.sort(porNombre), carreras: carreras.sort(porNombre), canales };
   }
 

@@ -62,6 +62,15 @@ export class ValidadorArchivos {
     return `“${nombre}” no es JPG ni PNG.${aviso}`;
   }
 
+  /** Evidencia de cierre: PDF, JPG o PNG según el contenido. */
+  async validarEvidenciaCierre(archivo: Express.Multer.File): Promise<ArchivoValidado | string> {
+    const nombre = nombreSeguro(archivo.originalname);
+    const tipo = await fileTypeFromFile(archivo.path);
+    if (tipo?.mime === 'application/pdf' || tipo?.mime === 'image/jpeg' || tipo?.mime === 'image/png') return this.armar(archivo, nombre, tipo.mime);
+    if (tipo !== undefined && MIMES_HEIC.includes(tipo.mime)) return 'Las fotos HEIC del iPhone hay que convertirlas a JPG antes de subirlas.';
+    return `“${nombre}” no se puede usar como evidencia. Adjunta un PDF, JPG o PNG.`;
+  }
+
   private async armar(archivo: Express.Multer.File, nombreOriginal: string, mime: string): Promise<ArchivoValidado> {
     return { nombreOriginal, mime, tamano: archivo.size, sha256: await sha256DeArchivo(archivo.path) };
   }

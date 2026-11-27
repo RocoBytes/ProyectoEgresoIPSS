@@ -87,3 +87,10 @@ export interface EdicionRegistro {
 export interface RespuestaEdicion {
   sinCambios: boolean;
 }
+
+/** Respuesta de POST /api/registros/:id/cierre y /anulacion. */
+export interface RespuestaCambioEstado {
+  id: string;
+  correlativo: string;
+  estado: EstadoRegistro;
+}

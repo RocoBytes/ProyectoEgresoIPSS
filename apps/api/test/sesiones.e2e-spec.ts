@@ -226,6 +226,17 @@ describe('POST /api/sesiones y descarga de evidencias', () => {
       expect(r.cuerpo).toMatchObject({ message: 'La evidencia está dañada; avisa al administrador del sistema.' });
     });
   });
+  it('con un archivo en un campo ajeno responde 400 en español y no deja temporales en `.entrantes`', async () => {
+    const f = new FormData();
+    f.append('datos', JSON.stringify(datos()));
+    f.append('acta', new Blob([new Uint8Array(PDF)], { type: 'application/pdf' }), 'acta.pdf');
+    f.append('otro', new Blob([new Uint8Array(PDF)], { type: 'application/pdf' }), 'otro.pdf');
+    const r = await fetch(`${ap.url}/api/sesiones`, { method: 'POST', headers: { cookie: Object.entries(cookies).map(([n, v]) => `${n}=${v}`).join('; '), 'x-forwarded-for': '10.8.2.2' }, body: f });
+    expect(r.status).toBe(400);
+    expect(((await r.json()) as { message: string }).message).toBe('La solicitud trae un archivo que no corresponde.');
+    expect(await readdir(join(dir, '.entrantes'))).toEqual([]);
+  });
+
   it('rechaza con 413 y mensaje claro un Content-Length mayor a 100 MB sin esperar el cuerpo', async () => {
     // fetch no deja falsear Content-Length: se usa node:http y no se envía ningún byte del cuerpo.
     const { estado, cuerpo } = await new Promise<{ estado: number; cuerpo: string }>((resolver, rechazar) => {

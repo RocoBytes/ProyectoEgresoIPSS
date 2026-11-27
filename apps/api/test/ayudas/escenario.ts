@@ -88,6 +88,8 @@ export interface OpcionesLlamada {
   datos?: unknown;
   acta?: ArchivoForm | null;
   fotos?: ArchivoForm[];
+  /** Campo `evidencia` del cierre de un registro. */
+  evidencia?: ArchivoForm | null;
 }
 
 export interface RespuestaHttp<T = unknown> {
@@ -104,12 +106,13 @@ export async function llamar<T = unknown>(url: string, metodo: 'GET' | 'POST' | 
   const cabeceras: Record<string, string> = { 'X-Forwarded-For': `10.9.${(contadorIp >> 8) & 255}.${contadorIp & 255}` };
   if (o.cookies !== undefined) cabeceras['cookie'] = Object.entries(o.cookies).map(([n, v]) => `${n}=${v}`).join('; ');
   let cuerpo: BodyInit | undefined;
-  if (o.datos !== undefined || o.acta !== undefined || o.fotos !== undefined) {
+  if (o.datos !== undefined || o.acta !== undefined || o.fotos !== undefined || o.evidencia !== undefined) {
     const form = new FormData();
     if (o.datos !== undefined) form.append('datos', typeof o.datos === 'string' ? o.datos : JSON.stringify(o.datos));
     const agregar = (campo: string, a: ArchivoForm) => form.append(campo, new Blob([new Uint8Array(a.contenido)], { type: a.tipo ?? 'application/octet-stream' }), a.nombre);
     if (o.acta) agregar('acta', o.acta);
     for (const f of o.fotos ?? []) agregar('fotos', f);
+    if (o.evidencia) agregar('evidencia', o.evidencia);
     cuerpo = form;
   } else if (o.json !== undefined) {
     cabeceras['content-type'] = 'application/json';

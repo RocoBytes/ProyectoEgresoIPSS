@@ -1,7 +1,10 @@
-import { Body, Controller, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Query } from '@nestjs/common';
-import type { DetalleRegistro, RespuestaAnios, RespuestaEdicion, RespuestaListadoRegistros } from '@ipss/shared';
+import { Body, Controller, Get, HttpCode, HttpStatus, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Query, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import type { DetalleRegistro, RespuestaAnios, RespuestaCambioEstado, RespuestaEdicion, RespuestaListadoRegistros } from '@ipss/shared';
 import { Roles, TODOS_LOS_ROLES } from '../acceso/roles';
 import { UsuarioActual, type UsuarioAutenticado } from '../acceso/usuario-autenticado';
+import { SubidaEvidenciaCierreInterceptor } from '../evidencias/subida-evidencias.interceptor';
+import { AnularRegistroDto } from './dto/anular-registro.dto';
+import { CierreAnulacionService } from './cierre-anulacion.service';
 import { EditarRegistroDto } from './dto/editar-registro.dto';
 import { ListarRegistrosDto } from './dto/listar-registros.dto';
 import { RegistrosService } from './registros.service';
@@ -11,7 +14,10 @@ const idDeRegistro = new ParseUUIDPipe({ exceptionFactory: () => new NotFoundExc
 
 @Controller('registros')
 export class RegistrosController {
-  constructor(private readonly registros: RegistrosService) {}
+  constructor(
+    private readonly registros: RegistrosService,
+    private readonly cierres: CierreAnulacionService,
+  ) {}
 
   @Roles(...TODOS_LOS_ROLES)
   @Get()
@@ -36,5 +42,26 @@ export class RegistrosController {
   @Patch(':id')
   editar(@UsuarioActual() usuario: UsuarioAutenticado, @Param('id', idDeRegistro) id: string, @Body() cuerpo: EditarRegistroDto): Promise<RespuestaEdicion> {
     return this.registros.editar(usuario, id, cuerpo);
+  }
+
+  // multipart/form-data: `datos` trae el JSON ({ fechaEfectiva, comentario? }) y `evidencia` el archivo.
+  @Roles('DIRECTOR_SECTORIAL', 'DIRECTOR_CARRERA')
+  @UseInterceptors(SubidaEvidenciaCierreInterceptor)
+  @Post(':id/cierre')
+  @HttpCode(HttpStatus.OK)
+  cerrar(
+    @UsuarioActual() usuario: UsuarioAutenticado,
+    @Param('id', idDeRegistro) id: string,
+    @Body('datos') datos: string | undefined,
+    @UploadedFiles() archivos: { evidencia?: Express.Multer.File[] } | undefined,
+  ): Promise<RespuestaCambioEstado> {
+    return this.cierres.cerrar(usuario, id, datos, archivos?.evidencia?.[0]);
+  }
+
+  @Roles('DIRECTOR_SECTORIAL', 'DIRECTOR_CARRERA')
+  @Post(':id/anulacion')
+  @HttpCode(HttpStatus.OK)
+  anular(@UsuarioActual() usuario: UsuarioAutenticado, @Param('id', idDeRegistro) id: string, @Body() cuerpo: AnularRegistroDto): Promise<RespuestaCambioEstado> {
+    return this.cierres.anular(usuario, id, cuerpo.motivo);
   }
 }

@@ -61,7 +61,8 @@ export function simularApi(manejadores: Record<string, Manejador>): { llamadas: 
       const metodo = init?.method ?? 'GET';
       const ruta = typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url;
       const clave = `${metodo} ${ruta}`;
-      const cuerpo: unknown = typeof init?.body === 'string' ? JSON.parse(init.body) : undefined;
+      // Un multipart llega como FormData: la prueba lo inspecciona directamente.
+      const cuerpo: unknown = typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body instanceof FormData ? init.body : undefined;
       registro.llamadas.push(clave);
       registro.cuerpos.push(cuerpo);
       const manejador = manejadores[clave];
