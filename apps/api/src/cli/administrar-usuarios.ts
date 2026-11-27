@@ -95,7 +95,7 @@ export async function crearUsuario(
     await tx.usuarioCarrera.createMany({ data: carreraIds.map((carreraId) => ({ usuarioId: id, carreraId })) });
   });
   const [usuario] = await listarUsuarios(prisma, correo);
-  if (usuario === undefined) throw new Error('La cuenta recién creada no aparece en la base');
+  if (usuario === undefined) throw new ErrorUsuarios('La cuenta recién creada no aparece en la base: revisa con «listar» antes de repetir el comando.');
   return { usuario, claveTemporal };
 }
 

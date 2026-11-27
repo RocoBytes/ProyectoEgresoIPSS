@@ -76,7 +76,7 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
 
 - Rama `hito-4`, encima de `hito-3`. Un commit por tarea como mínimo.
 - Previsión: unas 2.000 líneas, en PR encadenados. La estrategia de cadena sigue pendiente del usuario y se decide antes del push. No se hace push.
-- Límite revisado por la revisión nativa: `10d5d8e`.
+- Límite revisado por la revisión nativa: `2476522`.
 
 ## Progreso y evidencia
 
@@ -179,6 +179,29 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
     - Una corrida programada con `HORA_RESPALDO=08:32` respaldó a la hora y recalculó 86.400 s para el día siguiente.
     - `npm test`: 26 reglas, Jest 299, Vitest 147. Lint y tipos en 0.
   - Pendiente menor: la prueba deja en caché las imágenes `ghcr.io/local/*:prueba-respaldo`, que se borran con `docker rmi`.
+  - Commit `2476522`.
+  - **Revisión nativa** del tramo `10d5d8e..2476522` (C2b y C3):
+    - Riesgo alto por los scripts de shell ejecutables, 844 líneas, autorizada por la instrucción del usuario.
+    - Pasó por 4 lentes, se aprobó y quedó reconocida. El límite revisado pasa a `2476522`.
+    - Ningún hallazgo bloqueante. Los informativos se reparten en dos tareas.
+  - **C2c**, para el escritor de la API:
+    - (advertencia) en `catalogos` los mensajes de `Error` comunes quedaban tapados por el texto genérico;
+    - el mensaje de permiso nombraba siempre a `ipss_api`;
+    - los SQLSTATE no tenían nombre;
+    - las URL de prueba estaban fijas;
+    - quedaba un residuo de la prueba de unicidad.
+  - **C3b**, para el escritor de infraestructura:
+    - (advertencia) la marca de fallo en tmpfs se pierde al reiniciar, y el healthcheck debe salir de la antigüedad del último respaldo en el volumen;
+    - no hay reintento el mismo día;
+    - al restaurar vuelven sesiones revocadas, así que hay que revocar todos los refresh tokens después de restaurar;
+    - (advertencia) la comprobación de escritura de `ipss_api` no escribe ni comprueba nada;
+    - faltan pruebas de la retención y de las ramas del planificador.
+- [x] C2c (commit de esta tarea):
+  - Los `throw` de las rutas de los comandos que quedaban como `Error` común pasan a `ErrorDeUso` o `ErrorUsuarios`, con una prueba de que el mensaje llega al operador.
+  - El mensaje de permiso es genérico, los SQLSTATE tienen nombre y las URL de prueba salen de `URL_API`.
+  - La prueba de unicidad usa una transacción que se revierte, sin dejar residuo.
+  - Evidencia: `npm test` con 26 reglas, Jest 300 y Vitest 147; lint y tipos en 0. El padre volvió a correrlo con el mismo resultado.
+- [ ] C3b: hallazgos de la revisión en el respaldo (escritor de infraestructura).
 
 ## Próximo paso
 

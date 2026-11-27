@@ -8,9 +8,19 @@ import { URL_API } from './ayudas/acceso';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { Readable } from 'node:stream';
 
 // Los fallos son reales (base de pruebas y puertos cerrados), no objetos armados a mano: así se comprueba la forma
 // con la que el adaptador pg los entrega, que es lo que `describirError` lee (ADR 0006).
+/** Variante de URL_API con un puerto, una contraseña o una base distintos. */
+function urlCon(cambios: { puerto?: string; contrasena?: string; base?: string }): string {
+  const url = new URL(URL_API);
+  if (cambios.puerto !== undefined) url.port = cambios.puerto;
+  if (cambios.contrasena !== undefined) url.password = cambios.contrasena;
+  if (cambios.base !== undefined) url.pathname = `/${cambios.base}`;
+  return url.toString();
+}
+
 describe('mensajes de error de los comandos', () => {
   let prisma: PrismaClient;
   let avisos: string[];
@@ -43,8 +53,16 @@ describe('mensajes de error de los comandos', () => {
 
   it('una violación de unicidad se explica como una carrera entre operaciones', async () => {
     const nombre = `Sector único ${String(Date.now())}`;
-    await prisma.sector.create({ data: { nombre } });
-    const mensaje = describirError(await fallo(() => prisma.sector.create({ data: { nombre } })));
+    // La violación real ocurre dentro de una transacción que se revierte: no queda ninguna fila en la base compartida.
+    const mensaje = describirError(
+      await fallo(() =>
+        prisma.$transaction(async (tx) => {
+          await tx.sector.create({ data: { nombre } });
+          await tx.sector.create({ data: { nombre } });
+        }),
+      ),
+    );
+    expect(await prisma.sector.count({ where: { nombre } })).toBe(0);
     expect(mensaje).toContain('al mismo tiempo');
     expect(mensaje).not.toContain(nombre);
   });
@@ -58,9 +76,9 @@ describe('mensajes de error de los comandos', () => {
         await otro.$disconnect().catch(() => undefined);
       }
     };
-    expect(await con('postgresql://ipss_api:x@127.0.0.1:1/ipss')).toContain('No se pudo conectar');
-    expect(await con('postgresql://ipss_api:mala@127.0.0.1:55433/ipss')).toContain('rechazó el usuario o la contraseña');
-    expect(await con('postgresql://ipss_api:api_dev@127.0.0.1:55433/no_existe')).toContain('no existe');
+    expect(await con(urlCon({ puerto: '1' }))).toContain('No se pudo conectar');
+    expect(await con(urlCon({ contrasena: 'mala' }))).toContain('rechazó el usuario o la contraseña');
+    expect(await con(urlCon({ base: 'no_existe' }))).toContain('no existe');
   });
 
   it('los errores propios, los de archivo y los desconocidos tienen su mensaje', () => {
@@ -76,13 +94,13 @@ describe('mensajes de error de los comandos', () => {
   });
 
   it('usuarios y catálogos muestran el mensaje de la causa y salen con 1', async () => {
-    expect(await principalUsuarios(['listar'], { url: 'postgresql://ipss_api:x@127.0.0.1:1/ipss' })).toBe(1);
-    expect(await principalUsuarios(['listar'], { url: 'postgresql://ipss_api:mala@127.0.0.1:55433/ipss' })).toBe(1);
+    expect(await principalUsuarios(['listar'], { url: urlCon({ puerto: '1' }) })).toBe(1);
+    expect(await principalUsuarios(['listar'], { url: urlCon({ contrasena: 'mala' }) })).toBe(1);
     const dir = await mkdtemp(join(tmpdir(), 'ipss-errores-'));
     try {
       const ruta = join(dir, 'p.xlsx');
       await writeFile(ruta, await generarPlantilla());
-      expect(await principalCatalogos([ruta], { url: 'postgresql://ipss_api:x@127.0.0.1:1/ipss' })).toBe(1);
+      expect(await principalCatalogos([ruta], { url: urlCon({ puerto: '1' }) })).toBe(1);
       expect(await principalCatalogos([join(dir, 'no-existe.xlsx')], { url: URL_API })).toBe(1);
     } finally {
       await rm(dir, { recursive: true, force: true });
@@ -92,6 +110,22 @@ describe('mensajes de error de los comandos', () => {
     expect(texto).toContain('rechazó el usuario o la contraseña');
     expect(texto).toContain('No se encontró el archivo');
     expect(texto).not.toMatch(/127\.0\.0\.1|mala/);
+  });
+
+  it('los mensajes pensados para el operador siguen llegando a él', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'ipss-errores-'));
+    try {
+      const ruta = join(dir, 'planilla.txt');
+      await writeFile(ruta, 'x');
+      expect(await principalCatalogos([ruta], { url: URL_API })).toBe(1);
+      expect(avisos.join('\n')).toContain('El archivo debe ser una planilla .xlsx.');
+      avisos.length = 0;
+      expect(await principalCatalogos(['-'], { url: URL_API, stdin: Readable.from([Buffer.from('no es zip')]) })).toBe(1);
+      expect(avisos.join('\n')).toContain('El contenido no es una planilla .xlsx.');
+      expect(avisos.join('\n')).not.toContain('error inesperado');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it('un fallo al cerrar la conexión no escapa ni cambia el resultado', async () => {

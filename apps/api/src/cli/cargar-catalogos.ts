@@ -1,5 +1,6 @@
 import { Workbook } from 'exceljs';
 import type { PrismaClient } from '../generated/prisma/client';
+import { ErrorDeUso } from './errores-cli';
 import { CANALES_EJEMPLO, CARRERAS_EJEMPLO, SECTORES_EJEMPLO } from './datos-ejemplo';
 
 export const MAXIMO_BYTES_PLANILLA = 5 * 1024 * 1024;
@@ -160,7 +161,7 @@ export async function leerPlanilla(contenido: Buffer): Promise<{ planilla: Plani
 
 function resolver(ids: ReadonlyMap<string, string>, nombre: string, que: string): string {
   const id = ids.get(clave(nombre));
-  if (id === undefined) throw new Error(`${que} «${nombre}» sin resolver`);
+  if (id === undefined) throw new ErrorDeUso(`${que} «${nombre}» sin resolver`);
   return id;
 }
 

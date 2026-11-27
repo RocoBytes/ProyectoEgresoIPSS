@@ -3,8 +3,14 @@ import { Prisma } from '../generated/prisma/client';
 /** Error de uso o de datos cuyo mensaje ya está pensado para el operador: se muestra tal cual. */
 export class ErrorDeUso extends Error {}
 
+
+const MENSAJE_SIN_CONEXION = 'No se pudo conectar con la base de datos. Revisa que esté en ejecución y que DATABASE_URL apunte al servidor correcto.';
+
 const SQLSTATE_PERMISO_DENEGADO = '42501';
 const SQLSTATE_UNICO = '23505';
+const SQLSTATE_CLAVE_INVALIDA = '28P01';
+const SQLSTATE_AUTORIZACION_INVALIDA = '28000';
+const SQLSTATE_BASE_INEXISTENTE = '3D000';
 // Prisma agrupa en P1xxx los fallos de conexión; P2024 es el agotamiento del pool.
 const CODIGOS_SIN_CONEXION = new Set(['P1001', 'P1002', 'P1008', 'P1017', 'P2024']);
 const KINDS_SIN_CONEXION = new Set(['DatabaseNotReachable', 'ConnectionClosed', 'SocketTimeout', 'TooManyConnections']);
@@ -44,12 +50,12 @@ export function describirError(error: unknown): string {
       return 'Otra operación creó al mismo tiempo los mismos datos, así que este cambio no se aplicó. Revisa el estado actual y vuelve a ejecutar el comando.';
     }
     if (sqlstate === SQLSTATE_PERMISO_DENEGADO) {
-      return 'La base negó el permiso para esta operación: el usuario de la conexión (ipss_api) no tiene el privilegio necesario. Avisa a quien administra la base; no se aplicó ningún cambio.';
+      return 'La base negó el permiso para esta operación: el usuario de la conexión no tiene el privilegio necesario. Avisa a quien administra la base; no se aplicó ningún cambio.';
     }
-    if (error.code === 'P1000' || sqlstate === '28P01' || sqlstate === '28000' || kind === 'AuthenticationFailed') {
+    if (error.code === 'P1000' || sqlstate === SQLSTATE_CLAVE_INVALIDA || sqlstate === SQLSTATE_AUTORIZACION_INVALIDA || kind === 'AuthenticationFailed') {
       return 'La base rechazó el usuario o la contraseña de DATABASE_URL. Revisa las credenciales.';
     }
-    if (error.code === 'P1003' || sqlstate === '3D000' || kind === 'DatabaseDoesNotExist') {
+    if (error.code === 'P1003' || sqlstate === SQLSTATE_BASE_INEXISTENTE || kind === 'DatabaseDoesNotExist') {
       return 'La base indicada en DATABASE_URL no existe. Revisa el nombre de la base.';
     }
     if (CODIGOS_SIN_CONEXION.has(error.code) || (kind !== undefined && KINDS_SIN_CONEXION.has(kind))) return MENSAJE_SIN_CONEXION;
@@ -61,5 +67,3 @@ export function describirError(error: unknown): string {
   if (codigo === 'EACCES' || codigo === 'EPERM' || codigo === 'EROFS') return 'No hay permiso para leer o escribir ese archivo (en el contenedor de producción el sistema de archivos es de solo lectura: usa `-` para leer de la entrada estándar).';
   return 'La operación falló por un error inesperado. Vuelve a intentarlo; si se repite, avisa a quien administra el sistema.';
 }
-
-const MENSAJE_SIN_CONEXION = 'No se pudo conectar con la base de datos. Revisa que esté en ejecución y que DATABASE_URL apunte al servidor correcto.';
