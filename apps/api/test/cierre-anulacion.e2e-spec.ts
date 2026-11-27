@@ -177,6 +177,12 @@ describe('POST /api/registros/:id/cierre y /anulacion', () => {
       expect(evidencias.rowCount).toBe(1);
     });
 
+    it('con un id mal formado responde 404 y no deja el temporal en `.entrantes`', async () => {
+      const r = await cerrar('no-es-uuid', { fechaEfectiva: hoy });
+      expect(r.estado).toBe(404);
+      expect(await readdir(join(dir, '.entrantes'))).toEqual([]);
+    });
+
     it('rechaza dos archivos en `evidencia`, un campo de archivo ajeno y un envío de más de 100 MB', async () => {
       const id = await nuevoRegistro();
       const antes = await archivosEn();

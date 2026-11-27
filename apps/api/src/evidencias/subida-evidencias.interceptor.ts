@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
+import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { BadRequestException, CallHandler, ExecutionContext, Inject, Injectable, NestInterceptor, PayloadTooLargeException } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import type { MulterField } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
 import { diskStorage } from 'multer';
-import { catchError, defer, mergeAll, type Observable, throwError } from 'rxjs';
+import { catchError, defer, finalize, mergeAll, type Observable, throwError } from 'rxjs';
 import { CONFIGURACION, type Configuracion } from '../configuracion';
 import { SUBDIRECTORIO_ENTRANTES } from './disco-local';
 
@@ -51,7 +52,7 @@ abstract class SubidaBase implements NestInterceptor {
   intercept(contexto: ExecutionContext, siguiente: CallHandler): Observable<unknown> {
     // Antes de Multer: así el cuerpo no se lee ni se escribe nada en disco. Sin cabecera válida
     // (p. ej. transferencia fragmentada) valen los límites por archivo y el tope de Caddy.
-    const peticion = contexto.switchToHttp().getRequest<{ headers: Record<string, string | string[] | undefined> }>();
+    const peticion = contexto.switchToHttp().getRequest<PeticionConArchivos>();
     const cabecera = peticion.headers['content-length'];
     if (excedeTamanoEnvio(Array.isArray(cabecera) ? cabecera[0] : cabecera)) {
       return throwError(() => new PayloadTooLargeException({ statusCode: 413, message: MENSAJE_ENVIO_GRANDE }));
@@ -60,8 +61,23 @@ abstract class SubidaBase implements NestInterceptor {
     return defer(async () => this.interno.intercept(contexto, siguiente)).pipe(
       mergeAll(),
       catchError((error: unknown) => throwError(() => traducir(error, this.mensajes))),
+      // Se ejecute o no el caso de uso (un :id mal formado falla en un pipe, después de Multer), no puede quedar nada en `.entrantes`.
+      // Lo que el servicio ya movió con `incorporar` no existe en esa ruta y `force` lo ignora.
+      finalize(() => void limpiarTemporales(peticion)),
     );
   }
+}
+
+interface PeticionConArchivos {
+  headers: Record<string, string | string[] | undefined>;
+  file?: { path?: string };
+  files?: Array<{ path?: string }> | Record<string, Array<{ path?: string }>>;
+}
+
+/** Borra los temporales que Multer escribió para esta petición; un fallo al borrar nunca cambia la respuesta. */
+async function limpiarTemporales(peticion: PeticionConArchivos): Promise<void> {
+  const archivos = [...(peticion.file === undefined ? [] : [peticion.file]), ...(Array.isArray(peticion.files) ? peticion.files : Object.values(peticion.files ?? {}).flat())];
+  await Promise.all(archivos.flatMap((a) => (a.path === undefined ? [] : [rm(a.path, { force: true }).catch(() => undefined)])));
 }
 
 /** `true` si el Content-Length declara más de 100 MB. Exactamente el tope se permite; lo ausente o no numérico, también. */

@@ -45,7 +45,7 @@ Requieren Node 26.13.1 con npm 11.20 (`.nvmrc`) y Docker en ejecución. Todos se
 
 ## Arquitectura de la API
 
-- Monolito modular con siete módulos: `acceso`, `catalogos`, `sesiones`, `registros`, `evidencias`, `mallas`, `reportes`.
+- Monolito modular con siete módulos: `acceso`, `catalogos`, `sesiones`, `registros`, `evidencias`, `mallas`, `reportes`. Hoy existen todos menos `mallas`, que queda pendiente.
 - Tres capas por módulo: controlador (HTTP, DTO, guard), servicio (caso de uso y transacción), Prisma (datos). Sin repositorio genérico por tabla.
 - Interfaces solo donde hay dos implementaciones o una prueba que la pide: almacenamiento de evidencias (disco local hoy, S3 compatible después) y reloj inyectable.
 - Entrada: DTO con class-validator. `ValidationPipe` global con `whitelist`, `forbidNonWhitelisted` y `transform`.
