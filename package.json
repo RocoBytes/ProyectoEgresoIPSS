@@ -15,6 +15,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "test:bd": "npm run test:bd -w @ipss/api",
+    "test:respaldo": "node scripts/prueba-respaldo.mjs",
     "test": "npm run test:bd && npm run test --workspaces --if-present",
     "dev": "node scripts/dev.mjs",
     "semilla": "npm run semilla -w @ipss/api",

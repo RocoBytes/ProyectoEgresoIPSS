@@ -96,6 +96,73 @@ services:
         condition: service_healthy
     networks: [datos]
 
+  respaldo:
+    # Misma imagen que `bd`: trae pg_dump y pg_restore de la misma versión que el servidor.
+    image: postgres:16.16-alpine
+    restart: unless-stopped
+    # El entrypoint de la imagen bajaría a `postgres`, que no sirve aquí: las evidencias son de `node` con
+    # permisos 0640 y `postgres` no las podría leer. Se corre como root pero con todas las capacidades fuera
+    # salvo DAC_READ_SEARCH (leer archivos ajenos); sin DAC_OVERRIDE solo escribe en lo suyo (ADR 0019).
+    entrypoint: ["/bin/sh", "/respaldo/programar.sh"]
+    user: root
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    cap_add: [DAC_READ_SEARCH]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      TZ: America/Santiago
+      HORA_RESPALDO: ${HORA_RESPALDO:-03:00}
+      DIAS_RETENCION: ${DIAS_RETENCION:-14}
+      # Rol dueño del esquema: puede leer todo y así no hace falta un rol nuevo.
+      PGHOST: bd
+      PGUSER: ipss_migrador
+      PGDATABASE: ipss
+      PGPASSWORD: ${CLAVE_BD_MIGRADOR}
+    volumes:
+      # Los scripts viajan con este archivo igual que el Caddyfile: TI recibe `infra/` completo.
+      - ./respaldo:/respaldo:ro
+      - evidencias:/evidencias:ro
+      - respaldos:/respaldos
+    depends_on:
+      bd:
+        condition: service_healthy
+    healthcheck:
+      # El planificador toca /tmp/latido al menos cada hora y deja /tmp/fallo si el último respaldo falló.
+      test: ["CMD-SHELL", "test -n \"$$(find /tmp/latido -mmin -90)\" && test ! -e /tmp/fallo"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks: [datos]
+
+  # Solo existe cuando se pide con `--profile restauracion`; `up` nunca lo levanta.
+  restaurar:
+    image: postgres:16.16-alpine
+    profiles: ["restauracion"]
+    entrypoint: ["/bin/sh", "/respaldo/restaurar.sh"]
+    user: root
+    read_only: true
+    tmpfs: [/tmp]
+    # Al desempaquetar las evidencias hay que escribir en un directorio de `node` y devolverle los dueños.
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      TZ: America/Santiago
+      PGHOST: bd
+      PGUSER: ipss_migrador
+      PGDATABASE: ipss
+      PGPASSWORD: ${CLAVE_BD_MIGRADOR}
+    volumes:
+      - ./respaldo:/respaldo:ro
+      - evidencias:/evidencias
+      - respaldos:/respaldos:ro
+    depends_on:
+      bd:
+        condition: service_healthy
+    networks: [datos]
+
   bd:
     image: postgres:16.16-alpine
     restart: unless-stopped
@@ -124,3 +191,4 @@ volumes:
   caddy_config: {}
   bd_datos: {}
   evidencias: {}
+  respaldos: {}

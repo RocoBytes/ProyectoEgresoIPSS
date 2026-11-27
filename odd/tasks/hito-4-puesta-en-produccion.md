@@ -60,7 +60,7 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
 - [x] **C1 Catálogos reales.** CLI `catalogos` con planilla Excel (exceljs ya instalado), modo de prueba, plantilla generada, transacción, carga repetible sin duplicar y lectura por stdin para usarlo dentro del contenedor. Ruta: delegada (escritor de la API).
 - [x] **C1b Hallazgos de la revisión de C1.** Limpieza de temporales esperada antes de responder, prueba unitaria que la distingue y pruebas de los límites de entrada del comando de catálogos. Ruta: delegada (escritor de la API).
 - [x] **C2 Usuarios.** CLI `usuarios` (crear con alcance, desactivar, activar, restablecer clave, listar). Revoca sesiones al desactivar o restablecer y funciona con `NODE_ENV=production`. Ruta: delegada (mismo escritor).
-- [ ] **C3 Respaldo y restauración.** Servicio `respaldo`, scripts para respaldar y restaurar, y prueba de restauración. Ruta: delegada (escritor de infraestructura).
+- [x] **C3 Respaldo y restauración.** Servicio `respaldo`, scripts para respaldar y restaurar, y prueba de restauración. Ruta: delegada (escritor de infraestructura).
 - [ ] **C4 Punta a punta.** Playwright 1.65.1, tres flujos, comando `npm run e2e` y job en CI. Ruta: delegada.
 - [ ] **C5 Entrega.** `handle_errors` en Caddy, publicación en GHCR por etiqueta, guía de instalación, README y contenido de `infra/.env.ejemplo` para el usuario. Ruta: delegada.
 
@@ -156,7 +156,30 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
   - **Cierre y argumentos.** `$disconnect` va protegido y los puntos de entrada tienen un manejador de rechazo. Un flag usado como valor es error de uso (salida 2) en los dos comandos; `--plantilla --prueba` escribía un archivo llamado `--prueba`.
   - **Pruebas:** borde de 20.000 filas aceptado y 6 pruebas de errores reales.
   - **Evidencia:** `npm test` con 26 reglas, Jest 299 (28 suites) y Vitest 147; lint y tipos en 0.
+  - Commit `9e49cb4`. Un primer intento de commit incluyó por error `apps/api/.env.ejemplo`, por un `git add` de carpeta. Se rehízo antes de cualquier push y ahora se agrega siempre por archivo.
+  - Revisión nativa: 268 líneas, `under_budget`, pendiente en el tramo.
+- C3 (commit de esta tarea):
+  - **Servicio `respaldo`:**
+    - Usa la misma imagen `postgres:16.16-alpine` y se conecta como `ipss_migrador`, sin roles nuevos.
+    - Corre como root con `cap_drop: ALL` más `DAC_READ_SEARCH`, raíz de solo lectura y `no-new-privileges`. Las evidencias son de `node` con permisos 0640, y el volumen `respaldos` nace de root; la alternativa sin root, una imagen derivada, queda descrita en el ADR 0019.
+    - El planificador propio (`programar.sh`) despierta cada hora y respalda a `HORA_RESPALDO`, por defecto 03:00 de Santiago. No repite un respaldo ya hecho en el día.
+    - El healthcheck usa un latido y una marca de fallo.
+  - **`respaldar.sh`:** escribe de forma atómica `bd.dump` (`pg_dump -Fc`, verificado con `pg_restore --list`), `evidencias.tar` sin `.entrantes`, `SHA256SUMS` y `manifiesto.txt`. Conserva `DIAS_RETENCION`, por defecto 14.
+  - **Restauración:** el servicio `restaurar`, con perfil `restauracion` y solo las capacidades `CHOWN`, `DAC_OVERRIDE` y `FOWNER`, ejecuta `restaurar.sh`. Verifica las sumas antes de tocar nada y restaura en una sola transacción con `--clean --if-exists`.
+  - Documentación en el ADR 0019. El procedimiento de restauración va a la guía (C5).
+  - **Evidencia:**
+    - `compose config -q`: 0.
+    - El padre volvió a correr `npm run test:respaldo` (2 min 41 s) con resultado correcto:
+      - con la semilla, el planificador respaldó (33 evidencias, 19 registros);
+      - se destruyeron la base y las evidencias;
+      - tras restaurar, las 16 tablas tienen conteo y md5 idénticos, igual que los permisos, triggers y evidencias, y las 33 descargas son idénticas con `cmp`;
+      - el ingreso y el panel funcionan, e `ipss_api` conserva sus permisos;
+      - un respaldo con un byte alterado sale con código 1 («las sumas no coinciden … no se restaura nada») y la base queda igual;
+      - no quedan volúmenes del proyecto.
+    - Una corrida programada con `HORA_RESPALDO=08:32` respaldó a la hora y recalculó 86.400 s para el día siguiente.
+    - `npm test`: 26 reglas, Jest 299, Vitest 147. Lint y tipos en 0.
+  - Pendiente menor: la prueba deja en caché las imágenes `ghcr.io/local/*:prueba-respaldo`, que se borran con `docker rmi`.
 
 ## Próximo paso
 
-C3 respaldo y restauración.
+C4 Playwright.
