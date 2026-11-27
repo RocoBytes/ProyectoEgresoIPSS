@@ -267,9 +267,9 @@ describe('PaginaPanel', () => {
     expect(segundo.destino()).toBe('/registros?anio=2026&sector=s1');
   });
 
-  it('mientras llegan los datos del filtro nuevo, lo mostrado y sus enlaces siguen siendo los del filtro anterior', async () => {
+  it('mientras llegan los datos del filtro nuevo, lo mostrado sigue siendo del filtro anterior y queda bloqueado', async () => {
     let liberar: (r: Response) => void = () => undefined;
-    const { destino } = preparar('/', {
+    preparar('/', {
       '': panel2026,
       '?sectorId=s1': () =>
         new Promise<Response>((resolver) => {
@@ -278,14 +278,15 @@ describe('PaginaPanel', () => {
     });
     await screen.findByRole('option', { name: 'Tecnologías' });
     fireEvent.change(screen.getByLabelText('Sector'), { target: { value: 's1' } });
-    // La URL ya cambió, pero las filas siguen siendo de sectores: el título y la clave del clic también.
+    // La URL ya cambió, pero las filas siguen siendo de sectores: el título también. jsdom no implementa `inert`, así que no se hace clic aquí:
+    // el bloqueo se comprueba por el atributo, que el navegador sí aplica.
     await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).not.toBeNull());
+    expect(document.querySelector('[aria-busy="true"]')?.hasAttribute('inert')).toBe(true);
     expect(screen.getByRole('heading', { name: 'Ajustes por sector' })).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'Ajustes por carrera' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: /Salud/ }));
-    expect(destino()).toBe('/registros?anio=2026&sector=s2');
-    cleanup();
     liberar(respuestaJson(200, panelSector));
+    await screen.findByRole('heading', { name: 'Ajustes por carrera' });
+    expect(document.querySelector('[inert]')).toBeNull();
   });
 
   it('al llegar los datos nuevos se quita el estado de carga y los clics usan el filtro nuevo', async () => {
@@ -303,6 +304,7 @@ describe('PaginaPanel', () => {
     liberar(respuestaJson(200, panelSector));
     expect(await screen.findByRole('heading', { name: 'Ajustes por carrera' })).toBeTruthy();
     expect(document.querySelector('[aria-busy="true"]')).toBeNull();
+    expect(document.querySelector('[inert]')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /Informática/ }));
     expect(destino()).toBe('/registros?anio=2026&sector=s1&carrera=c1');
   });

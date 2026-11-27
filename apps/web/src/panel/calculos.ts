@@ -41,8 +41,11 @@ export function partesTexto(c: ConteoPorEstado): string {
 
 export const textoAjustes = (n: number): string => plural(n, 'ajuste', 'ajustes');
 
-/** Índice del primer mes con el máximo de ajustes; -1 si no hay ninguno (no se rotula un cero). */
-export function indiceMaximo(totales: number[]): number {
-  const maximo = Math.max(0, ...totales);
-  return maximo === 0 ? -1 : totales.indexOf(maximo);
+/** Número de mes (1 a 12) del primer mes con el máximo de ajustes; `null` si no hay ninguno (no se rotula un cero). No supone la serie completa ni ordenada. */
+export function mesDelMaximo(filas: Array<{ mes: number; total: number }>): number | null {
+  let mejor: { mes: number; total: number } | null = null;
+  for (const f of filas) {
+    if (f.total > 0 && (mejor === null || f.total > mejor.total || (f.total === mejor.total && f.mes < mejor.mes))) mejor = f;
+  }
+  return mejor?.mes ?? null;
 }

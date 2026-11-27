@@ -80,7 +80,7 @@ Fuera de alcance: mallas (RF-06), exportación (RF-10), catálogos reales, usuar
 
 - Rama `hito-3`, encima de `hito-2`. Un commit por tarea como mínimo.
 - Previsión: unas 2.500 líneas, en PR encadenados. La estrategia de cadena sigue pendiente del usuario y se decide antes del push. No se hace push.
-- Último límite revisado por la revisión nativa: `ecedb33`.
+- Último límite revisado por la revisión nativa: `f99164e`.
 
 ## Progreso y evidencia
 
@@ -154,6 +154,12 @@ Fuera de alcance: mallas (RF-06), exportación (RF-10), catálogos reales, usuar
     - `npm test` con 26 reglas, Jest 264 y Vitest 147; lint y tipos en 0.
     - El padre comprobó en Chrome sin interfaz contra el servidor de desarrollo: panel completo, desglose por carrera con el sector Tecnologías, diálogos de cerrar y anular, y un cierre completo desde la pantalla con archivo adjunto. Quedó «CERRADO · 26-11-2026», con historial, evidencia, SHA-256 y el toast. La cifra «3» sale sobre marzo.
     - Ese cierre (R-2026-016) quedó en la base de desarrollo.
+  - Commit `f99164e`.
+  - Revisión nativa del tramo `ecedb33..f99164e`: riesgo medio, 420 líneas, autorizada por la instrucción del usuario. Se aprobó y quedó reconocida. El nuevo límite revisado es `f99164e`.
+- P4c (commit de esta tarea):
+  - La prueba «en vuelo» ya no hace clic dentro de contenido `inert`, porque jsdom no lo implementa. Ahora comprueba que `inert` y `aria-busy` están puestos mientras carga y que se quitan al llegar los datos.
+  - `mesDelMaximo` toma el número de mes de la fila, sin suponer una serie completa ni ordenada, y tiene prueba unitaria.
+  - Evidencia: Vitest 147; lint y tipos en 0.
 
 ## Próximo paso
 

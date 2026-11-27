@@ -1,6 +1,6 @@
 import { Bar, BarChart, CartesianGrid, LabelList, Tooltip, XAxis, YAxis } from 'recharts';
 import type { PanelMes } from '@ipss/shared';
-import { COLORES, ejeY, indiceMaximo, MESES, partesTexto, textoAjustes } from './calculos';
+import { COLORES, ejeY, mesDelMaximo, MESES, partesTexto, textoAjustes } from './calculos';
 
 interface Props {
   anio: number;
@@ -42,7 +42,7 @@ function TooltipMes({ activo, mes, anio, ultimoMes }: { activo: boolean; mes: Pa
 export function GraficoMeses({ anio, porMes, ultimoMes, donde }: Props) {
   const totales = porMes.map((m) => m.total);
   const { ticks, tope } = ejeY(Math.max(1, ...totales));
-  const mesMaximo = indiceMaximo(totales);
+  const mesMaximo = mesDelMaximo(porMes);
   return (
     <div>
       <div aria-hidden="true">
@@ -83,7 +83,7 @@ export function GraficoMeses({ anio, porMes, ultimoMes, donde }: Props) {
           <Bar xAxisId="rotulo" dataKey="total" fill="transparent" maxBarSize={22} isAnimationActive={false} legendType="none" tooltipType="none">
             {/* Recharts omite las barras de altura cero al numerar, así que el mes se identifica por su dato y no por el índice. */}
             <LabelList
-              dataKey={(fila: PanelMes) => (fila.mes === mesMaximo + 1 ? fila.total : null)}
+              dataKey={(fila: PanelMes) => (fila.mes === mesMaximo ? fila.total : null)}
               content={({ x, y, width, value }: LabelProps) =>
                 typeof value !== 'number' ? null : (
                   <text x={Number(x) + Number(width) / 2} y={Number(y) - 5} textAnchor="middle" fontSize={12} fontWeight={700} fill="#102b42">

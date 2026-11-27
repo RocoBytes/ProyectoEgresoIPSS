@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ejeY, indiceMaximo, partesTexto, porcentaje, ultimoMes } from './calculos';
+import { ejeY, mesDelMaximo, partesTexto, porcentaje, ultimoMes } from './calculos';
 
 describe('calculos del panel', () => {
   it('el eje Y sigue la regla del prototipo', () => {
@@ -20,8 +20,10 @@ describe('calculos del panel', () => {
   it('el texto de estados usa singular y plural', () => {
     expect(partesTexto({ cerrados: 1, abiertos: 3, anulados: 0 })).toBe('1 cerrado, 3 abiertos');
   });
-  it('rotula el primer mes con el máximo y ninguno si todo es cero', () => {
-    expect(indiceMaximo([0, 3, 4, 4, 1])).toBe(2);
-    expect(indiceMaximo([0, 0, 0])).toBe(-1);
+  it('el mes del máximo sale del dato, aunque la serie esté incompleta o desordenada', () => {
+    expect(mesDelMaximo([{ mes: 7, total: 4 }, { mes: 3, total: 4 }, { mes: 9, total: 1 }])).toBe(3);
+    expect(mesDelMaximo([{ mes: 5, total: 2 }])).toBe(5);
+    expect(mesDelMaximo([{ mes: 2, total: 0 }, { mes: 1, total: 0 }])).toBeNull();
+    expect(mesDelMaximo([])).toBeNull();
   });
 });
