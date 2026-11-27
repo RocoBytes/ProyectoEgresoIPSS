@@ -9,7 +9,7 @@ import { Boton } from '../comun/ui/Boton';
 import { AreaTexto, Campo } from '../comun/ui/Campo';
 import { Dialogo } from '../comun/ui/Dialogo';
 import { anularRegistro } from './api';
-import { traducirErrorCambioEstado } from './errores-cambio-estado';
+import { traducirErrorApi } from '../comun/errores-api';
 
 const MAXIMO_MOTIVO = 2000;
 
@@ -37,7 +37,7 @@ function Contenido({ registro, alCerrar }: Omit<Props, 'abierto'>) {
       alCerrar();
     },
     onError: (error) => {
-      const { campos, general } = traducirErrorCambioEstado(error);
+      const { campos, general } = traducirErrorApi(error);
       const { motivo, ...sobrantes } = campos;
       if (motivo !== undefined) setError('motivo', { message: motivo });
       const resto = Object.values(sobrantes);

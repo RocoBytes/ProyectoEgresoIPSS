@@ -49,7 +49,7 @@ TDD desactivado. Jest (`bd-pruebas`), Vitest, `npm run test:bd` y `npm run e2e`.
 
 - [x] **E1a API de mallas.** Listado y subida con validaciones, permisos y transacción. Ruta: delegada (escritor de la API).
 - [x] **E2a API de exportación.** Mismos filtros que el listado, streaming, celdas de texto y tope de filas. Ruta: delegada (mismo escritor).
-- [ ] **E1b Web de mallas.** Ruta: delegada (escritor de la web).
+- [x] **E1b Web de mallas.** Ruta: delegada (escritor de la web).
 - [ ] **E2b Web de exportación.** Ruta: delegada (mismo escritor).
 - [ ] **E3 Cierre.** Prueba en Compose, ADR y documentación. Ruta: inline o delegada.
 
@@ -111,6 +111,23 @@ TDD desactivado. Jest (`bd-pruebas`), Vitest, `npm run test:bd` y `npm run e2e`.
   - **Exportación.** El conteo y los lotes corren en una sola `$transaction` `RepeatableRead` (120 s), y sigue en streaming; `commit` del libro va fuera. Una prueba crea y cierra registros entre lotes y comprueba que la exportación coincide con la foto previa. Sin `RepeatableRead` esa prueba falla, así que distingue.
   - **Malla duplicada.** `errores-malla.ts` reconoce solo el índice `version_malla_carrera_id_anio_key`, que Prisma 7 con el adaptador entrega en `meta.driverAdapterError.cause.constraint.index`. Tiene 4 pruebas unitarias.
   - **Evidencia:** el padre volvió a correr `npm test` (26 reglas, Jest 321 en 31 suites, Vitest 149). Lint y tipos en 0.
+  - Commit `543ebf6`. Evaluación: medio, 253 líneas, `under_budget`.
+- E1b (commit de esta tarea):
+  - **Pantalla.** `mallas/PaginaMallas.tsx`, `DialogoMalla.tsx` y `api.ts`.
+    - Selector de carrera con grupos por sector y `?carrera=`, que por defecto toma la primera carrera del alcance.
+    - Tabla con la pastilla «Vigente», estado vacío, «Subir versión» solo con permiso y aviso «Solo consulta» en los demás casos.
+    - El diálogo usa los mensajes de la API. Al subir, invalida `['mallas']` y `['objetos', carreraId]`.
+  - **Piezas extraídas a `comun/`:**
+    - `FilaDescarga`, sacada del detalle;
+    - `errores-api.ts`, antes `registros/errores-cambio-estado.ts`;
+    - el destino `malla` en `archivos.ts`;
+    - el ícono `subir`.
+  - **Pruebas:** 9 nuevas. La prueba de `RutaProtegida` usaba Mallas como marcador de posición; ahora simula catálogos y mallas.
+  - **Evidencia:**
+    - `npm test` con 26 reglas, Jest 321 y Vitest 158; lint y tipos en 0. El padre volvió a correr Vitest: 158.
+    - Capturas en Chrome sin interfaz contra el servidor de desarrollo:
+      - Carla ve la tabla con «Malla 2023 · Vigente» y el botón «Subir versión», y el diálogo «Nueva versión de malla» con los campos del prototipo;
+      - Paula ve «Solo consulta: puedes revisar y descargar sus mallas, pero no modificar.» sin el botón.
 
 ## Próximo paso
 

@@ -13,7 +13,7 @@ import { AreaTexto, Campo, Entrada } from '../comun/ui/Campo';
 import { Dialogo } from '../comun/ui/Dialogo';
 import { ZonaArchivo } from '../comun/ZonaArchivo';
 import { cerrarRegistro } from './api';
-import { traducirErrorCambioEstado } from './errores-cambio-estado';
+import { traducirErrorApi } from '../comun/errores-api';
 
 const MAXIMO_COMENTARIO = 2000;
 const MENSAJE_COMENTARIO = 'El comentario admite hasta 2.000 caracteres.';
@@ -53,7 +53,7 @@ function Contenido({ registro, alCerrar }: Omit<Props, 'abierto'>) {
       alCerrar();
     },
     onError: (error) => {
-      const { campos, general } = traducirErrorCambioEstado(error);
+      const { campos, general } = traducirErrorApi(error);
       const sobrantes: string[] = [];
       for (const [campo, mensaje] of Object.entries(campos)) {
         if (campo === 'fechaEfectiva' || campo === 'comentario') setError(campo, { message: mensaje });

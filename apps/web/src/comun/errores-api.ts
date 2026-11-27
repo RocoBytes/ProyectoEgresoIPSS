@@ -1,5 +1,5 @@
 import { ErrorApi } from '../api/cliente';
-import { MENSAJE_ARCHIVO_GRANDE } from '../comun/archivos';
+import { MENSAJE_ARCHIVO_GRANDE } from './archivos';
 
 export interface ErrorTraducido {
   /** Mensajes por campo del formulario (los `errores` de un 400). */
@@ -9,7 +9,7 @@ export interface ErrorTraducido {
 }
 
 /** Traduce el fallo de cerrar o anular: la API es la autoridad, así que se muestra su mensaje tal cual. */
-export function traducirErrorCambioEstado(error: unknown): ErrorTraducido {
+export function traducirErrorApi(error: unknown): ErrorTraducido {
   if (!(error instanceof ErrorApi)) {
     return { campos: {}, general: 'No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.' };
   }
