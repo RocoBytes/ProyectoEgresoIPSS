@@ -51,7 +51,7 @@ TDD desactivado. Jest (`bd-pruebas`), Vitest, `npm run test:bd` y `npm run e2e`.
 - [x] **E2a API de exportación.** Mismos filtros que el listado, streaming, celdas de texto y tope de filas. Ruta: delegada (mismo escritor).
 - [x] **E1b Web de mallas.** Ruta: delegada (escritor de la web).
 - [x] **E2b Web de exportación.** Ruta: delegada (mismo escritor).
-- [ ] **E3 Cierre.** Prueba en Compose, ADR y documentación. Ruta: inline o delegada.
+- [x] **E3 Cierre.** Prueba en Compose, ADR y documentación. Ruta: inline o delegada.
 
 ## Criterios de aceptación
 
@@ -157,7 +157,19 @@ TDD desactivado. Jest (`bd-pruebas`), Vitest, `npm run test:bd` y `npm run e2e`.
   - **Descarga.** `descargar.ts` quita el enlace temporal después del clic y difiere `revokeObjectURL` 10 s. Tiene prueba con temporizadores falsos.
   - **Mallas.** Muestra «Cargando» mientras carga. Si falla el catálogo o la lista de mallas, aparece un aviso con «Reintentar». Con el catálogo vacío dice «Aún no hay carreras registradas.»; ese texto no viene del prototipo.
   - **Evidencia:** lint y tipos en 0; Vitest 173, y el padre lo volvió a correr con 173.
+  - Commit `aceba90`.
+- E3, cierre (commit de cierre):
+  - **Compose, proyecto `ipss-extras` con semilla, todo por Caddy:**
+    - Carla sube la malla 2026 de Analista Programador: 201 y queda vigente.
+    - Repetir el año da 400 «Ya existe la malla 2026 de esta carrera.».
+    - Calidad recibe 403 y ve `puedeSubir=false`.
+    - El listado queda «2026*, 2023», y la versión 2026 aparece como objeto de nivel Malla.
+    - Calidad exporta sin filtros, con `anio=2026`, con `estado=VENCIDO` y con `q=docentes`: 200, con el nombre del archivo correcto. Las filas del xlsx son idénticas al listado, en el mismo orden (19, 14, 2 y 3).
+    - Al terminar, `down -v` sin restos.
+  - **Pruebas:** lint y tipos en 0. `npm test`: 26 reglas, Jest 321 (31 suites) y Vitest 173. `npm run e2e`: 3 de 3.
+  - `CLAUDE.md` ya no dice que falta `mallas`.
+  - El tramo `dbb5fbc..` (E2e y cierre) queda pendiente, bajo el presupuesto.
 
 ## Próximo paso
 
-E1a y E2a (escritor de la API).
+Extras cerrados. Quedan decisiones del usuario: estrategia de PR y push, crear `infra/.env.ejemplo`, y las brechas de clave propia y alcance.
