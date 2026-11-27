@@ -52,8 +52,11 @@ Fuera de alcance: mallas (RF-06), exportación (RF-10), catálogos reales, usuar
   Ruta: delegada (escritor de la API; P3 para la web).
 - [x] **P2 API del panel.** Módulo `reportes` con indicadores, dona, anillos, series por mes y por año, canal, nivel, sector o carrera y últimas 5 sesiones. Ruta: delegada (mismo escritor).
 - [x] **P3 Web: cerrar y anular.** Botones en el detalle, `DialogoCerrar` y `DialogoAnular` con textos y validaciones del prototipo; la zona de archivo pasa a `comun/`. Ruta: delegada (escritor de la web).
-- [ ] **P4 Web: panel.** Filtros en la URL, indicadores, gráficos, estados vacíos, últimas sesiones y clic hacia el listado. Ruta: delegada (mismo escritor).
+- [x] **P4 Web: panel.** Filtros en la URL, indicadores, gráficos, estados vacíos, últimas sesiones y clic hacia el listado. Ruta: delegada (mismo escritor).
 - [ ] **P5 Cierre del hito.** Revisión independiente de seguridad, prueba en Compose con la semilla contra las cifras del prototipo, ADR 0016 y 0017, `CLAUDE.md`, y las 3 sugerencias de la segunda revisión nativa sobre la prueba de carga del panel. Ruta: inline o delegada.
+  - Revisión de seguridad (hecha sobre `c8f0cc1..5db34d3`, solo lectura): sin hallazgos altos ni medios. Dos bajos:
+    - (1) Un `:id` mal formado en `/cierre` responde 404 desde el pipe, después de que Multer escribió el archivo en `.entrantes`, y el `finally` del servicio nunca corre. Repetirlo llena el disco hasta el barrido del arranque. Se corrige limpiando los temporales en el interceptor cuando termina la petición, sea cual sea el resultado (también en sesiones), con su prueba.
+    - (2) El alcance se comprueba después de que Multer guarda hasta 20 MB. El archivo se borra, así que es solo carga transitoria y se acepta con unos 10 usuarios; queda anotado en el ADR 0016.
 
 ## Criterios de aceptación
 
@@ -127,7 +130,18 @@ Fuera de alcance: mallas (RF-06), exportación (RF-10), catálogos reales, usuar
   - El tope del comentario se mide sobre el texto recortado.
   - Pruebas nuevas: cierre con fecha efectiva igual a la de la sesión y comentario de 2.000 caracteres entre espacios, y el detalle que se vuelve a pedir tras un 409 en los dos diálogos.
   - Evidencia: `npm test` con salida 0, 26 reglas, Jest 264 y Vitest 119; lint y tipos en 0. El padre volvió a correr Vitest de la web: 119.
+- P4 (commit de esta tarea):
+  - `panel/` reemplaza a `EnConstruccion`. Filtros `anio`, `sector` y `carrera` en la URL; el año va en botones con `aria-pressed`. Cuatro indicadores, columnas por mes y dona (Recharts), tres anillos, tarjetas por año, barras clicables de canal, nivel y sector o carrera (botones HTML) y últimas sesiones.
+  - Cada clic hacia el listado lleva el año y los filtros del panel más la dimensión elegida.
+  - Para lectores de pantalla, el dibujo de Recharts va con `aria-hidden` y hay una tabla oculta con los 12 meses. La leyenda de la dona son botones.
+  - Clave de consulta `['reportes','panel',anio,sector,carrera]`.
+  - 22 pruebas nuevas con las cifras del prototipo.
+  - Evidencia: `npm test` con salida 0, 26 reglas, Jest 264 y Vitest 141; lint y tipos en 0; `vite build` correcto. El padre volvió a correr lint y Vitest de la web: 141.
+  - Diferencias que quedan para revisar en el navegador (P5):
+    - falta el número sobre la columna del mes máximo;
+    - los tooltips de las barras HTML son `title` nativos.
+    - El dibujo de Recharts no se pudo probar en jsdom.
 
 ## Próximo paso
 
-P4 (escritor de la web).
+P5 cierre del hito.

@@ -41,6 +41,12 @@ const TRAZOS = {
       <path d="m6 6 12 12" />
     </>
   ),
+  reloj: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3 2" />
+    </>
+  ),
   check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
   alerta: (
     <>
