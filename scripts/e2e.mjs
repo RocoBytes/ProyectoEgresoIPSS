@@ -1,9 +1,9 @@
 // Pruebas de punta a punta: levanta la pila completa de infra/compose.yaml bajo un proyecto propio (`ipss-e2e`)
 // con secretos aleatorios y puertos libres, siembra los datos de ejemplo, corre Playwright contra el proxy real
-// por HTTPS y siempre baja el proyecto con sus volúmenes, también si algo falla.
+// por HTTPS y siempre baja el proyecto con sus volúmenes, también si algo falla o si llega Ctrl-C o SIGTERM.
 // No toca ningún otro contenedor ni volumen de la máquina.
 // Usa solo módulos de Node para no sumar dependencias.
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { createServer } from 'node:net';
 import { resolve } from 'node:path';
@@ -51,47 +51,89 @@ function paso(texto) {
   console.log(`\n== ${texto}`);
 }
 
+// Se usa `spawn` asíncrono: con `spawnSync` el proceso no atiende señales mientras dura el `up --build`.
+let hijoActual = null;
 function ejecutar(comando, args, { permitirFallo = false, heredar = false } = {}) {
-  const resultado = spawnSync(comando, args, { cwd: raiz, env: entorno, encoding: 'utf8', stdio: heredar ? 'inherit' : 'pipe', maxBuffer: 256 * 1024 * 1024 });
-  if (resultado.status !== 0 && !permitirFallo) {
-    if (!heredar) {
-      console.error(resultado.stdout);
-      console.error(resultado.stderr);
-    }
-    throw new Error(`Falló: ${comando} ${args.slice(0, 8).join(' ')} (código ${String(resultado.status)})`);
-  }
-  return resultado;
+  return new Promise((alResolver, alRechazar) => {
+    const hijo = spawn(comando, args, { cwd: raiz, env: entorno, stdio: heredar ? 'inherit' : 'pipe' });
+    hijoActual = hijo;
+    let stdout = '';
+    let stderr = '';
+    hijo.stdout?.on('data', (d) => (stdout += d));
+    hijo.stderr?.on('data', (d) => (stderr += d));
+    hijo.once('error', alRechazar);
+    hijo.once('close', (status) => {
+      hijoActual = null;
+      if (status !== 0 && !permitirFallo) {
+        if (!heredar) console.error(stdout, stderr);
+        alRechazar(new Error(`Falló: ${comando} ${args.slice(0, 8).join(' ')} (código ${String(status)})`));
+      } else alResolver({ status: status ?? 1, stdout, stderr });
+    });
+  });
 }
 
 const compose = (args, opciones) => ejecutar('docker', ['compose', '-p', PROYECTO, '-f', 'infra/compose.yaml', ...args], opciones);
 
-function restos() {
+async function restos() {
   const filtro = `label=com.docker.compose.project=${PROYECTO}`;
-  const contenedores = ejecutar('docker', ['ps', '-aq', '--filter', filtro], { permitirFallo: true }).stdout.split('\n').filter(Boolean);
-  const volumenes = ejecutar('docker', ['volume', 'ls', '-q', '--filter', filtro], { permitirFallo: true }).stdout.split('\n').filter(Boolean);
+  const contenedores = (await ejecutar('docker', ['ps', '-aq', '--filter', filtro], { permitirFallo: true })).stdout.split('\n').filter(Boolean);
+  const volumenes = (await ejecutar('docker', ['volume', 'ls', '-q', '--filter', filtro], { permitirFallo: true })).stdout.split('\n').filter(Boolean);
   return { contenedores: contenedores.length, volumenes: volumenes.length };
+}
+
+// La misma promesa para todos los llamadores: la bajada nunca corre dos veces a la vez.
+let bajada = null;
+function bajar() {
+  bajada ??= (async () => {
+    paso(`Bajando ${PROYECTO} con sus volúmenes`);
+    try {
+      const limpieza = await compose(['down', '--volumes', '--remove-orphans'], { permitirFallo: true });
+      if (limpieza.status !== 0) console.error(limpieza.stderr);
+      const { contenedores, volumenes } = await restos();
+      console.log(`   contenedores restantes: ${String(contenedores)}, volúmenes restantes: ${String(volumenes)}`);
+    } catch (error) {
+      console.error(`No se pudo bajar ${PROYECTO}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  })();
+  return bajada;
+}
+
+/** Últimas líneas de los servicios que explican la mayoría de las fallas, antes de que la bajada las borre. */
+async function mostrarRegistros() {
+  try {
+    console.error(`\n== Últimas líneas de api y proxy`);
+    console.error((await compose(['logs', '--no-color', '--tail', '40', 'api', 'proxy'], { permitirFallo: true })).stdout);
+  } catch (error) {
+    console.error(`No se pudieron leer los registros: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+for (const [senal, numero] of [['SIGINT', 2], ['SIGTERM', 15]]) {
+  process.on(senal, () => {
+    console.error(`\nRecibí ${senal}: interrumpo y bajo ${PROYECTO}`);
+    hijoActual?.kill('SIGTERM');
+    void bajar().finally(() => process.exit(128 + numero));
+  });
 }
 
 let codigo = 1;
 try {
   paso(`Levantando la pila (${PROYECTO}, https://localhost:${String(puertoHttps)})`);
-  compose(['up', '-d', '--build', '--wait']);
+  await compose(['up', '-d', '--build', '--wait']);
 
   paso('Sembrando los datos de ejemplo dentro del contenedor de la API');
-  compose(['exec', '-T', '-e', 'NODE_ENV=development', 'api', 'sh', '-c', 'node dist/cli/semilla.js']);
+  await compose(['exec', '-T', '-e', 'NODE_ENV=development', 'api', 'sh', '-c', 'node dist/cli/semilla.js']);
 
   paso('Corriendo Playwright (Chromium)');
   // Lo que siga a `npm run e2e --` (un archivo, `--grep`, `--headed`) pasa tal cual a Playwright.
   const extra = process.argv.slice(2);
-  codigo = ejecutar('npm', ['run', 'e2e', '-w', '@ipss/e2e', ...(extra.length > 0 ? ['--', ...extra] : [])], { permitirFallo: true, heredar: true }).status ?? 1;
+  codigo = (await ejecutar('npm', ['run', 'e2e', '-w', '@ipss/e2e', ...(extra.length > 0 ? ['--', ...extra] : [])], { permitirFallo: true, heredar: true })).status;
+  if (codigo !== 0) await mostrarRegistros();
 } catch (error) {
   console.error(`\nPRUEBAS DE PUNTA A PUNTA: no se pudieron preparar\n${error instanceof Error ? error.message : String(error)}`);
-  console.error(compose(['ps', '-a'], { permitirFallo: true }).stdout);
+  await mostrarRegistros();
 } finally {
-  paso(`Bajando ${PROYECTO} con sus volúmenes`);
-  const limpieza = compose(['down', '--volumes', '--remove-orphans'], { permitirFallo: true });
-  if (limpieza.status !== 0) console.error(limpieza.stderr);
-  const { contenedores, volumenes } = restos();
-  console.log(`   contenedores restantes: ${String(contenedores)}, volúmenes restantes: ${String(volumenes)}`);
+  // El código de Playwright se fija antes y ninguna falla de la bajada lo cambia.
+  await bajar();
   process.exitCode = codigo;
 }

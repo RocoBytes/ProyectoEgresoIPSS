@@ -76,7 +76,7 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
 
 - Rama `hito-4`, encima de `hito-3`. Un commit por tarea como mínimo.
 - Previsión: unas 2.000 líneas, en PR encadenados. La estrategia de cadena sigue pendiente del usuario y se decide antes del push. No se hace push.
-- Límite revisado por la revisión nativa: `03792da`.
+- Límite revisado por la revisión nativa: `9ca629e`.
 
 ## Progreso y evidencia
 
@@ -259,6 +259,22 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
     - `npm test`: 26 reglas, Jest 300 y Vitest 147.
     - El padre volvió a correr `npm run e2e`: 3 de 3 en 6,5 s, con 0 contenedores y 0 volúmenes restantes.
   - **Pendiente menor:** `puertoLibre` y la preparación de Compose están duplicados entre `scripts/e2e.mjs` y `scripts/prueba-respaldo.mjs`.
+  - Commit `9ca629e`.
+  - **Revisión nativa** de `03792da..9ca629e` (C3d y C4): riesgo alto, 480 líneas, 4 lentes, autorizada por la instrucción del usuario. Se aprobó y quedó reconocida. El límite revisado pasa a `9ca629e`.
+  - **Defecto real en C3d, señalado por tres lentes.** Si `pg_restore` muere dentro de un bloque `COPY ... FROM stdin`, `psql` lee la sentencia de aborto y la revocación como filas. La transacción única puede confirmar una restauración parcial sin revocar sesiones. Lo corrige C3e.
+  - **Advertencias de punta a punta, para C4b:**
+    - un Ctrl-C durante `up` deja el proyecto levantado;
+    - el flujo 2 puede leer una fila vieja antes de que se aplique el filtro.
+- [ ] C3e: restauración por tubería sin agujero en modo COPY, con prueba de volcado truncado (escritor de infraestructura).
+- [x] C4b (commit de esta tarea):
+  - **Señales.** `scripts/e2e.mjs` pasa de `spawnSync` a `spawn`, para poder atender las señales. SIGINT y SIGTERM detienen el proceso hijo y bajan el proyecto con sus volúmenes, una sola vez gracias a una promesa compartida, y salen con 130 o 143.
+  - **Fila del flujo 2.** El registro sale del JSON de la respuesta ya filtrada y la prueba espera el `href` exacto en la primera fila.
+  - **Al fallar.** El código de salida es el de Playwright aunque falle la bajada, y se imprimen los logs de api y proxy.
+  - **Evidencia:**
+    - Lint y tipos en 0.
+    - `npm run e2e`: 3 de 3, sin contenedores ni volúmenes restantes. El padre lo volvió a correr: 3 de 3.
+    - Un SIGINT a los 25 s salió con 130 y dejó 0 contenedores y 0 volúmenes.
+    - No se probaron SIGTERM, que usa el mismo código, ni la impresión de logs.
 
 ## Próximo paso
 

@@ -16,17 +16,20 @@ test('Carla cierra un registro con evidencia y el panel cuenta uno más', async 
   // Se elige por los filtros de la pantalla: el alcance de Carla son los sectores Tecnologías e Ingeniería.
   await page.goto('/registros');
   await page.getByLabel('Estado', { exact: true }).selectOption({ label: 'Abierto' });
-  // Se espera la respuesta filtrada: sin eso se podría leer la primera fila del listado anterior.
-  const filtrado = page.waitForResponse((r) => r.url().includes('/api/registros?') && r.url().includes('sectorId='));
+  // El registro se toma de la respuesta de la API ya filtrada y después se espera que la tabla lo pinte en la primera fila:
+  // así nunca se lee una fila del listado anterior.
+  const filtrado = page.waitForResponse(
+    (r) => r.url().includes('/api/registros?') && r.url().includes('sectorId=') && r.url().includes('estado=ABIERTO'),
+  );
   await page.getByLabel('Sector', { exact: true }).selectOption({ label: 'Tecnologías' });
-  await filtrado;
-  const primera = page.getByRole('row').nth(1);
-  const enlace = primera.getByRole('link', { name: /^R-\d{4}-\d+$/ });
-  await expect(enlace).toBeVisible();
-  const correlativo = (await enlace.textContent()) ?? '';
-  const ruta = (await enlace.getAttribute('href')) ?? '';
+  const cuerpo = (await (await filtrado).json()) as { filas: Array<{ id: string; correlativo: string; sesion: { fecha: string } }> };
+  const elegido = cuerpo.filas[0];
+  if (elegido === undefined) throw new Error('Los datos de ejemplo no dejan registros abiertos en Tecnologías');
+  const { correlativo } = elegido;
+  const ruta = `/registros/${elegido.id}`;
+  await expect(page.getByRole('row').nth(1).getByRole('link', { name: correlativo })).toHaveAttribute('href', ruta);
   // El panel cuenta por año de la sesión, no del cierre: se mide en el año del registro elegido.
-  const anio = ((await primera.getByRole('cell').nth(1).textContent()) ?? '').trim().slice(-4);
+  const anio = elegido.sesion.fecha.slice(0, 4);
 
   const antes = await cerradosEnElPanel(page, anio);
 
