@@ -68,7 +68,7 @@ TDD desactivado. Jest (`bd-pruebas`), Vitest, `npm run test:bd` y `npm run e2e`.
 ## Entrega
 
 - Rama `extras-mallas-exportacion`, encima de `hito-4`. Previsión: unas 1.500 líneas, en PR encadenados. No se hace push.
-- Límite revisado por la revisión nativa: `a0ea522`.
+- Límite revisado por la revisión nativa: `dbb5fbc`.
 
 ## Progreso y evidencia
 
@@ -148,6 +148,15 @@ TDD desactivado. Jest (`bd-pruebas`), Vitest, `npm run test:bd` y `npm run e2e`.
   - `clasesBoton` se exporta para dar estilo de botón a un `<Link>`.
   - 4 pruebas de visibilidad por rol.
   - Evidencia: lint y tipos en 0; Vitest 169, y el padre lo volvió a correr con 169.
+  - Commit `dbb5fbc`.
+  - **Revisión nativa** de `a0ea522..dbb5fbc` (E2c, E1b, E2b y E2d): riesgo medio, 1.237 líneas, autorizada por la instrucción del usuario. Se aprobó y quedó reconocida. El límite revisado pasa a `dbb5fbc`.
+  - **Dos advertencias para E2e:**
+    - el URL del blob se revoca en el mismo instante del clic;
+    - Mallas no muestra un error si falla el catálogo.
+- [x] E2e (commit de esta tarea):
+  - **Descarga.** `descargar.ts` quita el enlace temporal después del clic y difiere `revokeObjectURL` 10 s. Tiene prueba con temporizadores falsos.
+  - **Mallas.** Muestra «Cargando» mientras carga. Si falla el catálogo o la lista de mallas, aparece un aviso con «Reintentar». Con el catálogo vacío dice «Aún no hay carreras registradas.»; ese texto no viene del prototipo.
+  - **Evidencia:** lint y tipos en 0; Vitest 173, y el padre lo volvió a correr con 173.
 
 ## Próximo paso
 

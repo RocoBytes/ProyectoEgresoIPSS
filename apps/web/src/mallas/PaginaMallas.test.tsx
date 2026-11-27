@@ -209,4 +209,38 @@ describe('PaginaMallas', () => {
     enviar(dialogo);
     expect(await within(dialogo).findByText('El archivo pesa más de 20 MB. Reduce el archivo o divídelo.')).toBeTruthy();
   });
+
+  it('si falla el catálogo avisa, no deja el selector en blanco sin explicación y permite reintentar', async () => {
+    let falla = true;
+    simularApi({
+      'GET /api/acceso/yo': () => respuestaJson(200, todas),
+      'GET /api/catalogos': () => (falla ? respuestaJson(500, { statusCode: 500, message: 'Error' }) : respuestaJson(200, catalogos)),
+      [LISTA_C1]: ok(sinVersiones),
+    });
+    montar(rutas, '/mallas');
+    expect((await screen.findByRole('alert')).textContent).toContain('No se pudieron cargar las carreras.');
+    expect(screen.queryByRole('status')).toBeNull();
+    falla = false;
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+    expect(await screen.findByText('Informática aún no tiene versiones de malla')).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('mientras carga el catálogo muestra el indicador de carga', async () => {
+    simularApi({
+      'GET /api/acceso/yo': () => respuestaJson(200, todas),
+      'GET /api/catalogos': () => new Promise<Response>(() => undefined),
+    });
+    montar(rutas, '/mallas');
+    expect((await screen.findByRole('status')).textContent).toContain('Cargando');
+  });
+
+  it('si falla la lista de mallas avisa y permite reintentar', async () => {
+    let falla = true;
+    preparar(todas, { [LISTA_C1]: () => (falla ? respuestaJson(500, { statusCode: 500, message: 'Error' }) : respuestaJson(200, conVersiones)) });
+    expect((await screen.findByRole('alert')).textContent).toContain('No se pudieron cargar las mallas.');
+    falla = false;
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+    expect(await screen.findByText('Malla 2026')).toBeTruthy();
+  });
 });

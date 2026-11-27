@@ -87,12 +87,28 @@ export function PaginaMallas() {
         </Aviso>
       )}
 
-      {mallas.isError && (
-        <Aviso tipo="error" rol="alert">
-          No se pudieron cargar las mallas. Inténtalo de nuevo.
-        </Aviso>
+      {(catalogos.isError || mallas.isError) && (
+        <div className="grid justify-items-start gap-2">
+          <Aviso tipo="error" rol="alert">
+            {catalogos.isError ? 'No se pudieron cargar las carreras. Inténtalo de nuevo.' : 'No se pudieron cargar las mallas. Inténtalo de nuevo.'}
+          </Aviso>
+          <Boton
+            variante="secundario"
+            onClick={() => {
+              void (catalogos.isError ? catalogos.refetch() : mallas.refetch());
+            }}
+          >
+            Reintentar
+          </Boton>
+        </div>
       )}
-      {mallas.data === undefined && !mallas.isError && carreraId !== '' && (
+      {catalogos.isPending && (
+        <p role="status" className="text-texto-2">
+          Cargando
+        </p>
+      )}
+      {catalogos.isSuccess && carreras.length === 0 && <Aviso tipo="info">Aún no hay carreras registradas.</Aviso>}
+      {!catalogos.isPending && mallas.data === undefined && !mallas.isError && carreraId !== '' && (
         <p role="status" className="text-texto-2">
           Cargando
         </p>
