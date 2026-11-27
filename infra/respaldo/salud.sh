@@ -4,11 +4,12 @@
 # Se decide con estado persistente del volumen de respaldos, no con /tmp: un reinicio no borra una falla.
 #   - el planificador sigue vivo (toca /tmp/latido al menos cada hora);
 #   - no hay marca .ultimo-fallo (respaldar.sh la deja al fallar y la quita al terminar bien);
-#   - el respaldo completo más nuevo tiene menos de 26 horas (24 más una hora de holgura por el cambio de horario
+#   - el respaldo completo más nuevo tiene menos de PLAZO_HORAS horas (24 más 2 de holgura por el cambio de horario
 #     y el tiempo que tarda el respaldo). Sin ningún respaldo, se da ese mismo plazo desde el primer arranque
 #     (.primer-arranque), para que una instalación nueva no nazca no saludable.
 DESTINO="${DIRECTORIO_RESPALDOS:-/respaldos}"
-PLAZO_MIN=1560
+PLAZO_HORAS=26
+PLAZO_MIN=$((PLAZO_HORAS * 60))
 
 no_sano() { echo "$*"; exit 1; }
 
@@ -21,8 +22,8 @@ for directorio in "$DESTINO"/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]_[0-9][0-
 done
 
 if [ -n "$ultimo" ]; then
-  [ -n "$(find "$ultimo" -maxdepth 0 -mmin -$PLAZO_MIN)" ] || no_sano "el respaldo más nuevo ($ultimo) tiene más de 26 horas"
+  [ -n "$(find "$ultimo" -maxdepth 0 -mmin -$PLAZO_MIN)" ] || no_sano "el respaldo más nuevo ($ultimo) tiene más de $PLAZO_HORAS horas"
 else
-  [ -n "$(find "$DESTINO/.primer-arranque" -maxdepth 0 -mmin -$PLAZO_MIN 2> /dev/null)" ] || no_sano "no hay ningún respaldo y pasaron más de 26 horas desde el primer arranque"
+  [ -n "$(find "$DESTINO/.primer-arranque" -maxdepth 0 -mmin -$PLAZO_MIN 2> /dev/null)" ] || no_sano "no hay ningún respaldo y pasaron más de $PLAZO_HORAS horas desde el primer arranque"
 fi
 echo "sano"

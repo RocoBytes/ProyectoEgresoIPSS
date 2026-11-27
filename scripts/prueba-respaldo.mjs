@@ -81,7 +81,7 @@ function fotografiar() {
   const tablas = psql("select tablename from pg_tables where schemaname = 'public' order by 1").split('\n');
   // La restauración revoca a propósito los refresh_token vigentes; por eso su md5 deja fuera `revocado_en`
   // y se comprueba aparte que ninguno quede vigente.
-  const fila = (t) => (t === 'refresh_token' ? '(x.id, x.usuario_id, x.hash, x.familia, x.sesion_iniciada_en, x.expira_en, x.creado_en)::text' : 'x::text');
+  const fila = (t) => (t === 'refresh_token' ? "(to_jsonb(x) - 'revocado_en')::text" : 'x::text');
   const contenido = psql(tablas.map((t) => `select '${t}', count(*), md5(coalesce(string_agg(${fila(t)}, '|' order by ${fila(t)}), '')) from "${t}" x`).join(' union all '));
   return {
     tablas: contenido.split('\n'),
@@ -149,6 +149,12 @@ async function esperarRespaldo() {
 function horaActual() {
   const ahora = new Date(Math.floor(Date.now() / 60_000) * 60_000);
   return ahora.toLocaleTimeString('en-GB', { timeZone: 'America/Santiago', hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+/** Hora HH:MM de Santiago de hace dos horas: deja al planificador fuera de la ventana del respaldo. */
+function horaHaceDosHoras() {
+  const antes = new Date(Math.floor((Date.now() - 2 * 3600_000) / 60_000) * 60_000);
+  return antes.toLocaleTimeString('en-GB', { timeZone: 'America/Santiago', hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
 /** Ejecuta un script de sh dentro del contenedor `respaldo` y devuelve su salida. */
@@ -295,6 +301,19 @@ rollback;
   console.log(`   código ${String(intento.status)}, "${intento.stderr.trim().split('\n').pop()}"`);
   console.log('   la base quedó igual (mismos conteos y md5)');
 
+  paso('Si la restauración falla a medias, la base queda como estaba');
+  // Una vista de otro dueño que depende de `sesion` hace fallar el DROP en mitad de la transacción.
+  psql('create view bloqueo_prueba as select id from sesion');
+  const antesAtomica = fotografiar();
+  const falla = compose(['--profile', 'restauracion', 'run', '--rm', '--no-TTY', 'restaurar', nombre], { permitirFallo: true });
+  if (falla.status === 0) throw new Error('La restauración debía fallar con la vista bloqueando el DROP');
+  if (!/una sola transacci/.test(falla.stderr)) throw new Error(`Falta el mensaje de transacción en:\n${falla.stderr}`);
+  const trasAtomica = compararFotos(antesAtomica, fotografiar());
+  if (trasAtomica.length > 0) throw new Error(`La restauración fallida dejó cambios:\n${trasAtomica.join('\n')}`);
+  if (psql("select count(*) from pg_views where viewname = 'bloqueo_prueba'") !== '1') throw new Error('La vista de prueba desapareció');
+  psql('drop view bloqueo_prueba');
+  console.log(`   código ${String(falla.status)}; ${String(antesAtomica.tablas.length)} tablas, permisos y triggers sin cambios`);
+
   paso('Retención y salud con directorios de prueba (dentro del volumen de respaldos)');
   const retencion = enRespaldo(`
     set -eu
@@ -330,28 +349,33 @@ rollback;
   }
   console.log(`   salud.sh: ${String(escenas.length)} escenas con el resultado esperado`);
 
-  paso('Falla del respaldo: reintento, marca persistente, reinicio y recuperación');
-  enRespaldo('rm -rf /respaldos/20??-??-??_???? /respaldos/prueba-* /respaldos/.ultimo-fallo');
+  paso('Falla del respaldo: reintento, reinicio fuera de la ventana y recuperación');
+  enRespaldo('rm -rf /respaldos/20??-??-??_???? /respaldos/prueba-* /respaldos/.ultimo-fallo /respaldos/.reintento');
   compose(['stop', 'bd']);
   entorno.HORA_RESPALDO = horaActual();
   entorno.REINTENTO_SEGUNDOS = '20';
+  // Intentos de sobra: la escena no depende de cuánto tarde la base en volver.
+  entorno.MAX_INTENTOS = '10';
   compose(['up', '-d', '--no-deps', '--force-recreate', 'respaldo']);
-  await esperarEnRegistro(/Intento 2 de 3/, 90, 'El planificador no reintentó tras la falla');
+  await esperarEnRegistro(/Intento 2 de 10/, 90, 'El planificador no reintentó tras la falla');
   const enFalla = enRespaldo('sh /respaldo/salud.sh');
   if (enFalla.status === 0 || !/falló/.test(enFalla.stdout)) throw new Error(`Con el respaldo fallando debía estar no saludable: ${enFalla.stdout}`);
   console.log(`   reintentó a los 20 s; salud: "${enFalla.stdout.trim()}"`);
 
-  compose(['restart', 'respaldo']);
-  await dormir(3000);
+  // Reinicio con la hora del respaldo dos horas atrás: la ventana de 300 s ya no aplica y solo el estado guardado
+  // en el volumen puede explicar que el planificador siga reintentando.
+  entorno.HORA_RESPALDO = horaHaceDosHoras();
+  compose(['up', '-d', '--no-deps', '--force-recreate', 'respaldo']);
+  await esperarEnRegistro(/Retomo un reintento pendiente/, 30, 'El planificador no retomó el reintento pendiente tras reiniciar');
   const trasReiniciar = enRespaldo('sh /respaldo/salud.sh');
   if (trasReiniciar.status === 0 || !/falló/.test(trasReiniciar.stdout)) throw new Error(`La marca de falla no sobrevivió al reinicio: ${trasReiniciar.stdout}`);
-  console.log('   tras reiniciar el contenedor sigue no saludable (la marca vive en el volumen)');
+  console.log('   reiniciado fuera de la ventana: retomó el reintento y sigue no saludable (estado en el volumen)');
 
   compose(['up', '-d', '--wait', '--no-deps', 'bd']);
-  await esperarEnRegistro(/Respaldo completo/, 90, 'El planificador no se recuperó al volver la base');
-  const sana = enRespaldo('sh /respaldo/salud.sh');
-  if (sana.status !== 0) throw new Error(`Tras recuperarse debía estar sano: ${sana.stdout}`);
-  console.log(`   al volver la base respaldó y quedó sano ("${sana.stdout.trim()}")`);
+  await esperarEnRegistro(/Respaldo completo/, 120, 'El planificador no se recuperó al volver la base');
+  const sana = enRespaldo('sh /respaldo/salud.sh; test ! -e /respaldos/.reintento && echo sin-estado');
+  if (sana.status !== 0 || !/sano/.test(sana.stdout) || !/sin-estado/.test(sana.stdout)) throw new Error(`Tras recuperarse debía estar sano y sin reintento pendiente: ${sana.stdout}`);
+  console.log(`   al volver la base respaldó y quedó sano ("${sana.stdout.trim().split('\n')[0]}"), sin reintento pendiente`);
 
   fallo = false;
   console.log('\nPRUEBA DE RESTAURACIÓN: correcta');

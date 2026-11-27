@@ -76,7 +76,7 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
 
 - Rama `hito-4`, encima de `hito-3`. Un commit por tarea como mínimo.
 - Previsión: unas 2.000 líneas, en PR encadenados. La estrategia de cadena sigue pendiente del usuario y se decide antes del push. No se hace push.
-- Límite revisado por la revisión nativa: `2476522`.
+- Límite revisado por la revisión nativa: `0dbec36`.
 
 ## Progreso y evidencia
 
@@ -214,6 +214,25 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
     - reintento, marca que sobrevive a un reinicio y recuperación.
   - **Evidencia:**
     - El padre volvió a correr `npm run test:respaldo` con resultado correcto: 1 refresh token revocado (la sesión anterior responde 401), 33 descargas idénticas, la inserción como `ipss_api`, el respaldo dañado rechazado, retención, salud, reintento, reinicio y recuperación, y 0 volúmenes al terminar.
+    - Según el escritor: `npm test` con 26 reglas, Jest 300 y Vitest 147; lint y tipos en 0.
+  - Commit `0dbec36`.
+  - **Revisión nativa** del tramo `2476522..0dbec36` (C2c y C3b): riesgo alto, 371 líneas, 4 lentes, autorizada por la instrucción del usuario. Se aprobó y quedó reconocida. El límite revisado pasa a `0dbec36`.
+  - **Hallazgos para C3c, última ronda acotada del respaldo:**
+    - (advertencia) el estado de reintento solo está en memoria y se pierde al reiniciar;
+    - la revocación no es atómica con la restauración;
+    - (advertencia) la escena de recuperación depende del reloj.
+    - Ajustes menores: la huella de `refresh_token`, el texto de «26 horas», el log durante un reintento y la validación de variables.
+  - **No se toman, porque son cosméticos de pruebas en la API:**
+    - el orden del helper `urlCon` respecto de su comentario;
+    - la prueba de los `throw` convertidos que no son de planilla.
+- [x] C3c (commit de esta tarea):
+  - **Reintento persistente.** El estado queda en `/respaldos/.reintento` y se retoma aunque el reinicio caiga fuera de la ventana. Se descarta si es viejo o inválido.
+  - **Restauración atómica.** La salida SQL de `pg_restore --clean --if-exists` y la revocación de tokens corren juntas en `psql --single-transaction` con `ON_ERROR_STOP`. Como el guion deja vacío el `search_path`, la revocación usa `public.refresh_token`.
+  - **Escena de recuperación determinista.** Usa `MAX_INTENTOS=10` y recrea el contenedor con la hora fijada fuera de la ventana.
+  - **Ajustes menores:** la huella de `refresh_token` es `to_jsonb - revocado_en`, el plazo de salud sale de una constante, el log informa el reintento y las variables se validan por separado.
+  - **Prueba nueva de atomicidad:** una vista que bloquea el `DROP` a mitad de la restauración hace salir con código 1, y las 16 tablas, los permisos y los triggers quedan sin cambios.
+  - **Evidencia:**
+    - El padre volvió a correr `npm run test:respaldo` con resultado correcto, incluido «reiniciado fuera de la ventana: retomó el reintento» y «código 1; 16 tablas, permisos y triggers sin cambios».
     - Según el escritor: `npm test` con 26 reglas, Jest 300 y Vitest 147; lint y tipos en 0.
 
 ## Próximo paso

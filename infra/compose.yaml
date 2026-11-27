@@ -115,6 +115,7 @@ services:
       HORA_RESPALDO: ${HORA_RESPALDO:-03:00}
       DIAS_RETENCION: ${DIAS_RETENCION:-14}
       REINTENTO_SEGUNDOS: ${REINTENTO_SEGUNDOS:-1800}
+      MAX_INTENTOS: ${MAX_INTENTOS:-3}
       # Rol dueño del esquema: puede leer todo y así no hace falta un rol nuevo.
       PGHOST: bd
       PGUSER: ipss_migrador

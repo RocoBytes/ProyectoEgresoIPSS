@@ -7,7 +7,7 @@
 #
 # Un respaldo fallido se reintenta el mismo día (MAX_INTENTOS veces, cada REINTENTO_SEGUNDOS). Solo un
 # respaldo exitoso cierra el día. El estado que debe sobrevivir a un reinicio (marca de falla, primer
-# arranque) vive en el volumen de respaldos, no en /tmp: ver salud.sh.
+# arranque, reintento pendiente) vive en el volumen de respaldos, no en /tmp: ver salud.sh.
 #
 # Variables: HORA_RESPALDO (HH:MM en hora de Santiago, por defecto 03:00), REINTENTO_SEGUNDOS (1800),
 # MAX_INTENTOS (3) y TZ, que fija Compose.
@@ -26,9 +26,13 @@ case "$HORA" in
   [01][0-9]:[0-5][0-9] | 2[0-3]:[0-5][0-9]) ;;
   *) log "HORA_RESPALDO debe tener la forma HH:MM (24 horas) y es '$HORA'" >&2; exit 1 ;;
 esac
-case "$REINTENTO$MAX_INTENTOS" in
-  '' | *[!0-9]*) log "REINTENTO_SEGUNDOS y MAX_INTENTOS deben ser enteros" >&2; exit 1 ;;
-esac
+entero_positivo() {
+  case "$2" in
+    '' | *[!0-9]* | 0) log "$1 debe ser un entero mayor que cero y es '$2'" >&2; exit 1 ;;
+  esac
+}
+entero_positivo REINTENTO_SEGUNDOS "$REINTENTO"
+entero_positivo MAX_INTENTOS "$MAX_INTENTOS"
 
 # `$((08))` falla en sh porque lee octal: se quita el cero inicial.
 sin_cero() { v="${1#0}"; echo "${v:-0}"; }
@@ -52,8 +56,29 @@ ultimo=""          # día cuya ocurrencia ya se abrió
 pendiente=no       # hay un respaldo por hacer (o por reintentar)
 intentos=0
 siguiente=0        # época a partir de la cual toca el próximo intento
+
+# Los reintentos pendientes se guardan en el volumen para sobrevivir a un reinicio, también fuera de la ventana.
+ESTADO="$DESTINO/.reintento"
+guardar_estado() { echo "$ultimo $intentos $siguiente" > "$ESTADO"; }
+
+if [ -f "$ESTADO" ]; then
+  nuevo=no
+  for d in "$DESTINO"/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]_[0-9][0-9][0-9][0-9]; do
+    [ -d "$d" ] && [ -n "$(find "$d" -maxdepth 0 -newer "$ESTADO")" ] && nuevo=si
+  done
+  if [ "$nuevo" = si ] || [ -n "$(find "$ESTADO" -mmin +1440)" ]; then
+    # Un respaldo posterior lo resolvió, o el reintento es de hace más de un día y ya no corresponde.
+    rm -f "$ESTADO"
+  elif read -r e_ultimo e_intentos e_siguiente < "$ESTADO" && case "$e_intentos$e_siguiente" in '' | *[!0-9]*) false ;; esac; then
+    ultimo="$e_ultimo"; intentos="$e_intentos"; siguiente="$e_siguiente"; pendiente=si
+    log "Retomo un reintento pendiente: van $intentos de $MAX_INTENTOS intentos"
+  else
+    rm -f "$ESTADO"
+  fi
+fi
+
 # Un reinicio dentro de la ventana (actualización, `docker compose up`) no debe repetir el respaldo que ya se hizo hoy.
-if ls -d "$DESTINO/$(date +%F)"_[0-9][0-9][0-9][0-9] > /dev/null 2>&1; then
+if [ "$pendiente" = no ] && ls -d "$DESTINO/$(date +%F)"_[0-9][0-9][0-9][0-9] > /dev/null 2>&1; then
   ultimo=$(date +%F)
   log "Ya hay un respaldo de hoy; no se repite"
 fi
@@ -75,11 +100,14 @@ while :; do
     log "Intento $intentos de $MAX_INTENTOS"
     if sh /respaldo/respaldar.sh; then
       pendiente=no
+      rm -f "$ESTADO"
     elif [ "$intentos" -ge "$MAX_INTENTOS" ]; then
       pendiente=no
+      rm -f "$ESTADO"
       log "El respaldo falló $intentos veces; se reintenta mañana. El servicio queda no saludable hasta el próximo éxito." >&2
     else
       siguiente=$(( $(date +%s) + REINTENTO ))
+      guardar_estado
       log "El respaldo falló; reintento en $REINTENTO s" >&2
     fi
     touch /tmp/latido
@@ -95,7 +123,11 @@ while :; do
     [ "$espera" -lt 1 ] && espera=1
   fi
   [ "$espera" -gt 3600 ] && espera=3600
-  log "Próximo respaldo a las $HORA, faltan $falta s; vuelvo a revisar en $espera s"
+  if [ "$pendiente" = si ]; then
+    log "Reintento pendiente (van $intentos de $MAX_INTENTOS): el próximo intento es en $((siguiente - epoca)) s; vuelvo a revisar en $espera s"
+  else
+    log "Próximo respaldo a las $HORA, faltan $falta s; vuelvo a revisar en $espera s"
+  fi
   touch /tmp/latido
   # `wait` deja pasar las señales de inmediato; un `sleep` en primer plano las retendría.
   sleep "$espera" &

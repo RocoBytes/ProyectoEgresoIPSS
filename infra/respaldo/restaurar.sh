@@ -13,8 +13,8 @@
 #
 # Qué hace, en este orden, y se detiene en la primera falla:
 #   - comprueba SHA256SUMS y que el volcado se pueda leer, antes de tocar la base;
-#   - pg_restore con --clean --if-exists --single-transaction como ipss_migrador (dueño del esquema):
-#     todo ocurre en una transacción, así que una falla deja la base como estaba;
+#   - pg_restore --clean --if-exists como ipss_migrador (dueño del esquema), pasado por psql en una sola
+#     transacción junto con la revocación de tokens: una falla deja la base como estaba;
 #   - revoca todos los refresh tokens vigentes (UPDATE de revocado_en, nunca DELETE): el volcado trae el
 #     estado de la fecha del respaldo, y un token revocado después (por un cierre de sesión o por
 #     seguridad) volvería a valer; así nadie conserva una sesión que ya se había cerrado;
@@ -45,12 +45,24 @@ log "Verificando sumas de $origen"
 (cd "$origen" && sha256sum -c SHA256SUMS) || fallar "las sumas no coinciden: el respaldo está dañado, no se restaura nada"
 pg_restore --list "$origen/bd.dump" > /dev/null || fallar "el volcado no se puede leer"
 
-log "Restaurando la base de datos (una sola transacción)"
-pg_restore --clean --if-exists --single-transaction --exit-on-error --dbname="$PGDATABASE" "$origen/bd.dump" \
-  || fallar "pg_restore falló; la base quedó como estaba. ¿Está detenida la API?"
+# pg_restore genera el SQL del volcado (mismo orden, con los triggers al final) y se le suma la revocación de
+# sesiones; psql lo corre todo en UNA transacción con ON_ERROR_STOP: o queda restaurada y con las sesiones
+# revocadas, o la base queda exactamente como estaba.
+log "Restaurando la base de datos y revocando las sesiones (una sola transacción)"
+guion=/tmp/restaurar.sql
+pg_restore --clean --if-exists --file="$guion" "$origen/bd.dump" || fallar "pg_restore no pudo leer el volcado; no se cambió nada"
+cat >> "$guion" <<'SQL'
 
-revocados=$(psql --no-psqlrc -At -c "with t as (update refresh_token set revocado_en = now() where revocado_en is null returning 1) select count(*) from t") \
-  || fallar "no se pudieron revocar los refresh tokens; la base ya está restaurada, repita la restauración"
+-- El volcado trae el estado de la fecha del respaldo: un token revocado después volvería a valer.
+-- El guion de pg_restore deja search_path vacío, por eso el esquema va explícito.
+with t as (update public.refresh_token set revocado_en = now() where revocado_en is null returning 1)
+  select count(*) as revocados from t \gset
+\echo REVOCADOS :revocados
+SQL
+salida=$(psql --no-psqlrc -q -At -v ON_ERROR_STOP=1 --single-transaction --file="$guion") \
+  || fallar "la restauración falló y no se cambió nada (una sola transacción). ¿Está detenida la API?"
+rm -f "$guion"
+revocados=$(echo "$salida" | sed -n 's/^REVOCADOS //p')
 log "Refresh tokens revocados: $revocados (todos los usuarios deben iniciar sesión de nuevo)"
 
 log "Restaurando las evidencias en $DESTINO_EVIDENCIAS"
