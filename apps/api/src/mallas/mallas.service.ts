@@ -13,6 +13,7 @@ import { ValidadorArchivos } from '../evidencias/validador-archivos';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { DatosMallaDto } from './dto/datos-malla.dto';
+import { esDuplicadoDeAnioDeMalla } from './errores-malla';
 
 const ANIO_MINIMO = 2000;
 const MENSAJE_ANIO = 'Escribe el año con cuatro dígitos.';
@@ -110,7 +111,7 @@ export class MallasService {
         });
       } catch (error) {
         // Dos subidas simultáneas del mismo año: pierde la segunda, con el mismo mensaje que la comprobación previa.
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') throw this.error400([{ campo: 'anio', mensaje: mensajeDuplicada(anio) }]);
+        if (esDuplicadoDeAnioDeMalla(error)) throw this.error400([{ campo: 'anio', mensaje: mensajeDuplicada(anio) }]);
         throw error;
       }
     } catch (error) {

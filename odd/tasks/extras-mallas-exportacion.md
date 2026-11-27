@@ -68,7 +68,7 @@ TDD desactivado. Jest (`bd-pruebas`), Vitest, `npm run test:bd` y `npm run e2e`.
 ## Entrega
 
 - Rama `extras-mallas-exportacion`, encima de `hito-4`. Previsión: unas 1.500 líneas, en PR encadenados. No se hace push.
-- Límite revisado por la revisión nativa: `b69c926`. El tramo `b69c926..7aeed77` sigue pendiente.
+- Límite revisado por la revisión nativa: `a0ea522`.
 
 ## Progreso y evidencia
 
@@ -102,6 +102,15 @@ TDD desactivado. Jest (`bd-pruebas`), Vitest, `npm run test:bd` y `npm run e2e`.
     - 401, 200 para los tres perfiles y 400 con filtros inválidos.
   - ADR 0022 (mallas y exportación).
   - **Evidencia:** el padre volvió a correr `npm test` (26 reglas, Jest 316 en 30 suites, Vitest 149). Lint y tipos en 0.
+  - Commit `a0ea522`.
+  - **Revisión nativa** de `b69c926..a0ea522` (cierre del hito 4, E1a y E2a): riesgo medio, 1.047 líneas, autorizada por la instrucción del usuario. Se aprobó y quedó reconocida. El límite revisado pasa a `a0ea522`.
+  - **Dos advertencias para E2c:**
+    - la exportación no es una foto consistente: `count` y los lotes van en consultas separadas;
+    - cualquier P2002 se informa como año de malla duplicado.
+- [x] E2c (commit de esta tarea):
+  - **Exportación.** El conteo y los lotes corren en una sola `$transaction` `RepeatableRead` (120 s), y sigue en streaming; `commit` del libro va fuera. Una prueba crea y cierra registros entre lotes y comprueba que la exportación coincide con la foto previa. Sin `RepeatableRead` esa prueba falla, así que distingue.
+  - **Malla duplicada.** `errores-malla.ts` reconoce solo el índice `version_malla_carrera_id_anio_key`, que Prisma 7 con el adaptador entrega en `meta.driverAdapterError.cause.constraint.index`. Tiene 4 pruebas unitarias.
+  - **Evidencia:** el padre volvió a correr `npm test` (26 reglas, Jest 321 en 31 suites, Vitest 149). Lint y tipos en 0.
 
 ## Próximo paso
 

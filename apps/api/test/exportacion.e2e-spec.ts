@@ -167,6 +167,43 @@ describe('GET /api/registros/exportar (e2e contra PostgreSQL real)', () => {
     hoja?.eachRow((fila) => fila.eachCell((celda) => expect(celda.type).not.toBe(ValueType.Formula)));
   });
 
+  it('es una foto consistente: crear o cerrar registros entre lotes no duplica ni omite filas', async () => {
+    const servicio = ap.app.get(ExportacionRegistrosService);
+    const consulta = `${base()}&estado=ABIERTO`;
+    const foto = await correlativosDelListado(consulta);
+    expect(foto.length).toBeGreaterThan(9);
+    const nuevos: string[] = [];
+    const sesionNueva = await sesion('2026-07-01', 'Sesión creada durante la exportación');
+    try {
+      servicio.tamanoLote = 4;
+      let lotes = 0;
+      servicio.despuesDeCadaLote = async (lote) => {
+        lotes = lote;
+        if (lote !== 1) return;
+        // Después del primer lote: dos registros nuevos que ordenan ANTES de todo lo ya leído (correrían las páginas
+        // hacia abajo y repetirían filas) y un cierre de uno que todavía no se leyó (las correría hacia arriba y omitiría una).
+        nuevos.push(await reg(sesionNueva, e.carreraA, 'PERFIL_EGRESO', null, null, null, DESC, sumarDias(hoy, 20)));
+        nuevos.push(await reg(sesionNueva, e.carreraA, 'PERFIL_EGRESO', null, null, null, DESC, sumarDias(hoy, 21)));
+        await conMigrador(async (c) => {
+          const ev = (await c.query<{ id: string }>("INSERT INTO evidencia (nombre_original, mime, tamano, sha256, ruta, subido_por) VALUES ('c.pdf','application/pdf',1,$1,$2,$3) RETURNING id", ['0'.repeat(64), randomUUID(), e.sectorial.id])).rows[0]?.id;
+          await c.query("UPDATE registro SET estado='CERRADO', fecha_efectiva=$2, evidencia_cierre_id=$3 WHERE id = (SELECT r.id FROM registro r JOIN sesion s ON s.id = r.sesion_id WHERE s.canal_id = $1 AND r.estado = 'ABIERTO' AND r.correlativo = $4)", [e.canal, hoy, ev, foto[foto.length - 1]]);
+        });
+      };
+      const exportados = await correlativosExportados(consulta);
+      expect(lotes).toBeGreaterThan(1);
+      expect(nuevos).toHaveLength(2);
+      expect(exportados).toEqual(foto);
+      expect(new Set(exportados).size).toBe(exportados.length);
+    } finally {
+      servicio.tamanoLote = 1000;
+      servicio.despuesDeCadaLote = undefined;
+    }
+    // Lo que cambió durante la exportación sí aparece en la siguiente.
+    const despues = await correlativosDelListado(consulta);
+    expect(despues).not.toEqual(foto);
+    expect(await correlativosExportados(consulta)).toEqual(despues);
+  });
+
   it('responde 400 antes de escribir si el resultado supera el máximo, y deja pasar exactamente el máximo', async () => {
     const servicio = ap.app.get(ExportacionRegistrosService);
     const total = (await correlativosDelListado(base())).length;
