@@ -314,6 +314,49 @@ rollback;
   psql('drop view bloqueo_prueba');
   console.log(`   código ${String(falla.status)}; ${String(antesAtomica.tablas.length)} tablas, permisos y triggers sin cambios`);
 
+  paso('Un volcado cortado dentro de un bloque de datos no puede confirmarse a medias');
+  // `pg_restore --list` solo lee el índice: un volcado truncado en la zona de datos lo pasa, pero el flujo de
+  // datos muere dentro de un `COPY ... FROM stdin`. Se busca un corte (fracción del tamaño) donde eso ocurra de
+  // verdad: pg_restore falla y el SQL que alcanzó a emitir termina con un COPY sin cerrar.
+  const cortado = `${nombre}_cortado`;
+  enRespaldo(`rm -rf /respaldos/${cortado}; cp -r ${directorio} /respaldos/${cortado}`);
+  let corte = null;
+  const sondas = [];
+  const tamano = Number(enRespaldo(`wc -c < ${directorio}/bd.dump`).stdout.trim());
+  // De atrás hacia adelante: el primer corte que aún deja leer el índice y mata un COPY es el más cercano al final.
+  for (let fraccion = 99; fraccion >= 20; fraccion -= 3) {
+    const bytes = Math.floor((tamano * fraccion) / 100);
+    const sonda = enRespaldo(`
+      set -u; D=/respaldos/${cortado}
+      head -c ${String(bytes)} ${directorio}/bd.dump > $D/bd.dump
+      pg_restore --list $D/bd.dump > /dev/null || { echo "lista=falla"; exit 0; }
+      pg_restore --clean --if-exists --file=/tmp/sonda.sql $D/bd.dump 2> /dev/null && { echo "restaura=bien"; exit 0; }
+      abiertos=$(grep -c 'FROM stdin;$' /tmp/sonda.sql); cerrados=$(grep -c '^\\\\.$' /tmp/sonda.sql)
+      echo "copy_abiertos=$abiertos cerrados=$cerrados"; rm -f /tmp/sonda.sql
+    `).stdout.trim();
+    sondas.push(`${String(fraccion)} %: ${sonda}`);
+    const m = /copy_abiertos=(\d+) cerrados=(\d+)/.exec(sonda);
+    if (m && Number(m[1]) > Number(m[2])) {
+      corte = { fraccion, bytes, tamano, sonda };
+      break;
+    }
+  }
+  if (!corte) throw new Error(`Ningún corte dejó un COPY sin cerrar; la prueba no reproduce el caso:\n${sondas.join('\n')}`);
+  enRespaldo(`cd /respaldos/${cortado} && sha256sum bd.dump evidencias.tar > SHA256SUMS`);
+  console.log(`   intentos de corte: ${String(sondas.length)}; corte al ${String(corte.fraccion)} % (${String(corte.bytes)} de ${String(corte.tamano)} bytes): --list pasa, ${corte.sonda}; SHA256SUMS recalculado`);
+
+  const huellaSesiones = () => psql("select count(*) filter (where revocado_en is null), md5(string_agg(coalesce(revocado_en::text, '-'), ',' order by id)) from refresh_token");
+  const antesCorte = fotografiar();
+  const sesionesAntes = huellaSesiones();
+  if (sesionesAntes.startsWith('0|')) throw new Error('Antes del corte debía haber un refresh token vigente para que la comprobación valga');
+  const corto = compose(['--profile', 'restauracion', 'run', '--rm', '--no-TTY', 'restaurar', cortado], { permitirFallo: true });
+  if (corto.status !== 1) throw new Error(`La restauración del volcado cortado debía salir con 1 y salió con ${String(corto.status)}`);
+  if (!/una sola transacci/.test(corto.stderr) || /Refresh tokens revocados/.test(corto.stdout)) throw new Error(`Salida inesperada:\n${corto.stdout}\n${corto.stderr}`);
+  const trasCorte = compararFotos(antesCorte, fotografiar());
+  if (trasCorte.length > 0) throw new Error(`El volcado cortado dejó cambios en la base:\n${trasCorte.join('\n')}`);
+  if (huellaSesiones() !== sesionesAntes) throw new Error('El volcado cortado cambió el estado de revocación de los refresh tokens');
+  console.log(`   código ${String(corto.status)}; mismos conteos, md5, permisos y triggers; refresh tokens sin tocar (${sesionesAntes.split('|')[0]} vigentes)`);
+
   paso('Retención y salud con directorios de prueba (dentro del volumen de respaldos)');
   const retencion = enRespaldo(`
     set -eu

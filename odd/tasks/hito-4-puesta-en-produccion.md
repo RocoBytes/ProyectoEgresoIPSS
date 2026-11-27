@@ -265,7 +265,14 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
   - **Advertencias de punta a punta, para C4b:**
     - un Ctrl-C durante `up` deja el proyecto levantado;
     - el flujo 2 puede leer una fila vieja antes de que se aplique el filtro.
-- [ ] C3e: restauración por tubería sin agujero en modo COPY, con prueba de volcado truncado (escritor de infraestructura).
+- [x] C3e (commit de esta tarea):
+  - **Corrección en `restaurar.sh`.** Si `pg_restore` falla, se inyectan un salto de línea, `\.` (cierra un COPY abierto) y una sentencia que falla. Además se guarda el código de `pg_restore` y se exige la línea `REVOCADOS`.
+  - **Demostración del escritor.** Con una tabla de una sola columna, la versión anterior confirmaba una carga parcial (2816 filas en vez de 1000); la nueva aborta con código 3. En tablas de varias columnas el agujero no se manifiesta, así que la prueba de integración confirma que se aborta, pero no distingue una versión de la otra.
+  - **Prueba nueva.**
+    - Trunca una copia de `bd.dump` a mitad de los datos: 99 %, con `--list` válido y 16 COPY abiertos contra 15 cerrados.
+    - Recalcula las sumas y restaura desde esa copia.
+    - Exige código 1, sin revocación, y conteos, md5, permisos, triggers y el estado de `refresh_token` iguales a los de antes.
+  - **Evidencia.** `sh -n` correcto. El padre volvió a correr `npm run test:respaldo` con resultado correcto: «código 1; mismos conteos, md5, permisos y triggers; refresh tokens sin tocar (1 vigentes)». Lint y tipos en 0.
 - [x] C4b (commit de esta tarea):
   - **Señales.** `scripts/e2e.mjs` pasa de `spawnSync` a `spawn`, para poder atender las señales. SIGINT y SIGTERM detienen el proceso hijo y bajan el proyecto con sus volúmenes, una sola vez gracias a una promesa compartida, y salen con 130 o 143.
   - **Fila del flujo 2.** El registro sale del JSON de la respuesta ya filtrada y la prueba espera el `href` exacto en la primera fila.
