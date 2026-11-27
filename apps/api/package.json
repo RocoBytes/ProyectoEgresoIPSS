@@ -1,0 +1,66 @@
+{
+  "name": "@ipss/api",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "build": "npm run generar && tsc -p tsconfig.build.json",
+    "typecheck": "npm run generar && tsc -p tsconfig.json --noEmit",
+    "generar": "prisma generate",
+    "migrar": "prisma migrate deploy",
+    "test:bd": "node test/bd/ejecutar.mjs",
+    "start": "node --env-file-if-exists=.env dist/main.js",
+    "test": "jest --runInBand"
+  },
+  "dependencies": {
+    "@nestjs/common": "11.2.9",
+    "@nestjs/core": "11.2.9",
+    "@nestjs/platform-express": "11.2.9",
+    "@nestjs/throttler": "6.7.1",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "argon2": "0.45.2",
+    "class-transformer": "0.5.1",
+    "class-validator": "0.15.1",
+    "cookie-parser": "1.4.7",
+    "exceljs": "4.4.0",
+    "file-type": "22.3.0",
+    "helmet": "8.3.0",
+    "pg": "^8.13.0",
+    "prisma": "7.10.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "11.2.9",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/express": "^5.0.0",
+    "@types/jest": "30.0.0",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.11.0",
+    "jest": "30.5.2",
+    "ts-jest": "29.4.15",
+    "typescript": "5.9.3"
+  },
+  "jest": {
+    "rootDir": ".",
+    "testEnvironment": "node",
+    "testRegex": "(src/.*\\.spec|test/.*\\.e2e-spec)\\.ts$",
+    "transform": {
+      "^.+\\.ts$": [
+        "ts-jest",
+        {
+          "tsconfig": "tsconfig.json",
+          "diagnostics": {
+            "ignoreCodes": [
+              151002
+            ]
+          }
+        }
+      ]
+    },
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.js$": "$1"
+    }
+  }
+}

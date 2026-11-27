@@ -1,0 +1,39 @@
+{
+  "name": "ipss-perfil-egreso",
+  "private": true,
+  "version": "0.0.0",
+  "workspaces": [
+    "packages/shared",
+    "apps/api",
+    "apps/web"
+  ],
+  "engines": {
+    "node": ">=26.13.1 <27"
+  },
+  "scripts": {
+    "lint": "npm run generar -w @ipss/api && eslint .",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "test:bd": "npm run test:bd -w @ipss/api",
+    "test": "npm run test:bd && npm run test --workspaces --if-present",
+    "dev": "node scripts/dev.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.15.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.73.0"
+  },
+  "overrides": {
+    "uuid": "11.1.1",
+    "effect": "3.22.1"
+  },
+  "allowScripts": {
+    "argon2@0.45.2": true,
+    "prisma@7.10.1": true,
+    "@prisma/engines@7.10.1": true,
+    "fsevents": false,
+    "@parcel/watcher": false
+  }
+}

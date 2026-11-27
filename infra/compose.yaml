@@ -1,0 +1,126 @@
+# Topología de producción: solo el proxy publica puertos y la base queda en una red interna.
+# Las migraciones corren en un servicio de una sola ejecución con el rol migrador; la API usa el rol sin DELETE.
+# Las variables obligatorias usan `:?` para que un secreto ausente detenga `compose` en vez de arrancar con uno vacío.
+name: ipss
+
+services:
+  proxy:
+    image: caddy:2.11.9-alpine
+    restart: unless-stopped
+    ports:
+      # Variables solo para desarrollo local, donde otro servicio puede ocupar el 80.
+      - "${PUERTO_HTTP:-80}:80"
+      - "${PUERTO_HTTPS:-443}:443"
+    environment:
+      DOMINIO: ${DOMINIO:?Falta DOMINIO, defina el dominio público, por ejemplo perfil.ipss.cl}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_datos:/data
+      - caddy_config:/config
+    healthcheck:
+      # La API de administración de Caddy solo escucha en 127.0.0.1 dentro del contenedor.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    networks: [frontal]
+
+  web:
+    image: ghcr.io/${GHCR_ORG:?Falta GHCR_ORG, organización dueña de las imágenes en GHCR}/ipss-web:${VERSION:?Falta VERSION, etiqueta de las imágenes}
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:80/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks: [frontal]
+
+  api:
+    image: ghcr.io/${GHCR_ORG}/ipss-api:${VERSION}
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    user: node
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      NODE_ENV: production
+      # Dentro del contenedor la API debe escuchar en todas las interfaces; el valor por defecto
+      # (127.0.0.1) la haría inalcanzable para el proxy. Solo la red `frontal` llega a este puerto.
+      HOST: "0.0.0.0"
+      PORT: "3000"
+      TRUST_PROXY: "1"
+      TZ: America/Santiago
+      DATABASE_URL: postgresql://ipss_api:${CLAVE_BD_API:?Falta CLAVE_BD_API, clave del rol ipss_api}@bd:5432/ipss
+      JWT_SECRETO: ${JWT_SECRETO:?Falta JWT_SECRETO, secreto de firma de los JWT}
+      DIRECTORIO_EVIDENCIAS: /datos/evidencias
+    volumes:
+      # El Dockerfile crea /datos/evidencias con dueño node (mkdir + chown) antes de declarar el volumen;
+      # sin eso el volumen nacería como root y la primera carga fallaría con EACCES.
+      - evidencias:/datos/evidencias
+    depends_on:
+      migrar:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/salud').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks: [frontal, datos]
+
+  migrar:
+    image: ghcr.io/${GHCR_ORG}/ipss-api:${VERSION}
+    restart: "no"
+    user: node
+    # Ruta explícita al CLI instalado en la imagen: `npx` intentaría descargarlo si no lo resolviera,
+    # y este contenedor solo está en la red interna `datos`, sin salida a internet.
+    command: ["/app/node_modules/.bin/prisma", "migrate", "deploy"]
+    environment:
+      DATABASE_URL_MIGRADOR: postgresql://ipss_migrador:${CLAVE_BD_MIGRADOR:?Falta CLAVE_BD_MIGRADOR, clave del rol ipss_migrador}@bd:5432/ipss
+    depends_on:
+      bd:
+        condition: service_healthy
+    networks: [datos]
+
+  bd:
+    image: postgres:16.16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${CLAVE_BD_SUPERUSUARIO:?Falta CLAVE_BD_SUPERUSUARIO, clave del superusuario postgres}
+      CLAVE_BD_MIGRADOR: ${CLAVE_BD_MIGRADOR}
+      CLAVE_BD_API: ${CLAVE_BD_API}
+      TZ: UTC
+    volumes:
+      - bd_datos:/var/lib/postgresql/data
+      - ./bd/00_roles.sh:/docker-entrypoint-initdb.d/00_roles.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ipss"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [datos]
+
+networks:
+  frontal: {}
+  datos:
+    internal: true
+
+volumes:
+  caddy_datos: {}
+  caddy_config: {}
+  bd_datos: {}
+  evidencias: {}

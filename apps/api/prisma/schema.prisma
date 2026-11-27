@@ -1,0 +1,264 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum EstadoRegistro {
+  ABIERTO
+  CERRADO
+  ANULADO
+
+  @@map("estado_registro")
+}
+
+enum NivelImpacto {
+  RECURSO
+  ASIGNATURA
+  MODULO
+  MALLA
+  PERFIL_INGRESO
+  PERFIL_EGRESO
+
+  @@map("nivel_impacto")
+}
+
+enum Rol {
+  DIRECTOR_SECTORIAL
+  DIRECTOR_CARRERA
+  ASEGURAMIENTO_CALIDAD
+
+  @@map("rol")
+}
+
+enum TipoAsignatura {
+  ASIGNATURA
+  MODULO
+
+  @@map("tipo_asignatura")
+}
+
+model Sector {
+  id       String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre   String          @unique
+  carreras Carrera[]
+  usuarios UsuarioSector[]
+
+  @@map("sector")
+}
+
+model Carrera {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sectorId    String           @map("sector_id") @db.Uuid
+  nombre      String           @unique
+  sector      Sector           @relation(fields: [sectorId], references: [id])
+  asignaturas Asignatura[]
+  mallas      VersionMalla[]
+  registros   Registro[]
+  usuarios    UsuarioCarrera[]
+
+  @@index([sectorId])
+  @@map("carrera")
+}
+
+model Asignatura {
+  id        String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  carreraId String         @map("carrera_id") @db.Uuid
+  tipo      TipoAsignatura
+  codigo    String?
+  nombre    String
+  carrera   Carrera        @relation(fields: [carreraId], references: [id])
+  registros Registro[]
+
+  @@unique([carreraId, codigo])
+  @@unique([carreraId, tipo, nombre])
+  @@map("asignatura")
+}
+
+model Canal {
+  id       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre   String   @unique
+  activo   Boolean  @default(true)
+  sesiones Sesion[]
+
+  @@map("canal")
+}
+
+model VersionMalla {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  carreraId    String     @map("carrera_id") @db.Uuid
+  anio         Int
+  vigenteDesde DateTime   @map("vigente_desde") @db.Date
+  archivoId    String     @unique @map("archivo_id") @db.Uuid
+  creadoEn     DateTime   @default(now()) @map("creado_en") @db.Timestamptz(3)
+  carrera      Carrera    @relation(fields: [carreraId], references: [id])
+  archivo      Evidencia  @relation(fields: [archivoId], references: [id])
+  registros    Registro[]
+
+  @@unique([carreraId, anio])
+  @@map("version_malla")
+}
+
+model Usuario {
+  id                    String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  correo                String            @unique
+  nombre                String
+  hashContrasena        String            @map("hash_contrasena")
+  rol                   Rol
+  activo                Boolean           @default(true)
+  proveedorIdentidad    String?           @map("proveedor_identidad")
+  intentosFallidos      Int               @default(0) @map("intentos_fallidos")
+  bloqueadoHasta        DateTime?         @map("bloqueado_hasta") @db.Timestamptz(3)
+  creadoEn              DateTime          @default(now()) @map("creado_en") @db.Timestamptz(3)
+  sectores              UsuarioSector[]
+  carreras              UsuarioCarrera[]
+  refreshTokens         RefreshToken[]
+  sesionesCreadas       Sesion[]
+  evidenciasSubidas     Evidencia[]
+  registrosActualizados Registro[]
+  historialEstados      HistorialEstado[]
+  historialCambios      HistorialCambio[]
+
+  @@map("usuario")
+}
+
+model UsuarioSector {
+  usuarioId String  @map("usuario_id") @db.Uuid
+  sectorId  String  @map("sector_id") @db.Uuid
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+  sector    Sector  @relation(fields: [sectorId], references: [id])
+
+  @@id([usuarioId, sectorId])
+  @@map("usuario_sector")
+}
+
+model UsuarioCarrera {
+  usuarioId String  @map("usuario_id") @db.Uuid
+  carreraId String  @map("carrera_id") @db.Uuid
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+  carrera   Carrera @relation(fields: [carreraId], references: [id])
+
+  @@id([usuarioId, carreraId])
+  @@map("usuario_carrera")
+}
+
+model RefreshToken {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioId  String    @map("usuario_id") @db.Uuid
+  hash       String    @unique @db.Char(64)
+  expiraEn   DateTime  @map("expira_en") @db.Timestamptz(3)
+  revocadoEn DateTime? @map("revocado_en") @db.Timestamptz(3)
+  creadoEn   DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+  usuario    Usuario   @relation(fields: [usuarioId], references: [id])
+
+  @@index([usuarioId])
+  @@map("refresh_token")
+}
+
+model Sesion {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  canalId       String      @map("canal_id") @db.Uuid
+  fecha         DateTime    @db.Date
+  instancia     String
+  participantes String[]
+  creadoPor     String      @map("creado_por") @db.Uuid
+  creadoEn      DateTime    @default(now()) @map("creado_en") @db.Timestamptz(3)
+  canal         Canal       @relation(fields: [canalId], references: [id])
+  creador       Usuario     @relation(fields: [creadoPor], references: [id])
+  registros     Registro[]
+  evidencias    Evidencia[]
+
+  @@map("sesion")
+}
+
+model Evidencia {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sesionId       String?       @map("sesion_id") @db.Uuid
+  nombreOriginal String        @map("nombre_original")
+  mime           String
+  tamano         Int
+  sha256         String        @db.Char(64)
+  ruta           String
+  subidoPor      String        @map("subido_por") @db.Uuid
+  creadoEn       DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
+  sesion         Sesion?       @relation(fields: [sesionId], references: [id])
+  subidaPor      Usuario       @relation(fields: [subidoPor], references: [id])
+  cierres        Registro[]    @relation("EvidenciaCierre")
+  versionMalla   VersionMalla?
+
+  @@index([sesionId])
+  @@map("evidencia")
+}
+
+model Registro {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sesionId          String            @map("sesion_id") @db.Uuid
+  carreraId         String            @map("carrera_id") @db.Uuid
+  nivelImpacto      NivelImpacto      @map("nivel_impacto")
+  asignaturaId      String?           @map("asignatura_id") @db.Uuid
+  versionMallaId    String?           @map("version_malla_id") @db.Uuid
+  recurso           String?
+  anio              Int               @default(0)
+  numero            Int               @default(0)
+  correlativo       String            @unique @default("")
+  estado            EstadoRegistro    @default(ABIERTO)
+  descripcion       String
+  fechaComprometida DateTime          @map("fecha_comprometida") @db.Date
+  fechaEfectiva     DateTime?         @map("fecha_efectiva") @db.Date
+  evidenciaCierreId String?           @map("evidencia_cierre_id") @db.Uuid
+  comentarioCierre  String?           @map("comentario_cierre")
+  motivoAnulacion   String?           @map("motivo_anulacion")
+  actualizadoPor    String            @map("actualizado_por") @db.Uuid
+  creadoEn          DateTime          @default(now()) @map("creado_en") @db.Timestamptz(3)
+  sesion            Sesion            @relation(fields: [sesionId], references: [id])
+  carrera           Carrera           @relation(fields: [carreraId], references: [id])
+  asignatura        Asignatura?       @relation(fields: [asignaturaId], references: [id])
+  versionMalla      VersionMalla?     @relation(fields: [versionMallaId], references: [id])
+  evidenciaCierre   Evidencia?        @relation("EvidenciaCierre", fields: [evidenciaCierreId], references: [id])
+  actualizador      Usuario           @relation(fields: [actualizadoPor], references: [id])
+  historialEstados  HistorialEstado[]
+  historialCambios  HistorialCambio[]
+
+  @@unique([anio, numero])
+  @@index([sesionId])
+  @@index([carreraId])
+  @@map("registro")
+}
+
+model HistorialEstado {
+  id             BigInt          @id @default(autoincrement())
+  registroId     String          @map("registro_id") @db.Uuid
+  estadoAnterior EstadoRegistro? @map("estado_anterior")
+  estadoNuevo    EstadoRegistro  @map("estado_nuevo")
+  usuarioId      String          @map("usuario") @db.Uuid
+  creadoEn       DateTime        @default(now()) @map("creado_en") @db.Timestamptz(3)
+  registro       Registro        @relation(fields: [registroId], references: [id])
+  usuario        Usuario         @relation(fields: [usuarioId], references: [id])
+
+  @@index([registroId])
+  @@map("historial_estado")
+}
+
+model HistorialCambio {
+  id         BigInt   @id @default(autoincrement())
+  registroId String   @map("registro_id") @db.Uuid
+  usuarioId  String   @map("usuario") @db.Uuid
+  cambios    Json
+  creadoEn   DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+  registro   Registro @relation(fields: [registroId], references: [id])
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id])
+
+  @@index([registroId])
+  @@map("historial_cambio")
+}
+
+model ContadorCorrelativo {
+  anio   Int @id
+  ultimo Int
+
+  @@map("contador_correlativo")
+}

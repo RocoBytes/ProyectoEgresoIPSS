@@ -20,12 +20,23 @@ Aplicación web interna del IPSS para registrar sesiones de retroalimentación c
 
 ## Comandos
 
-Aún no existen; el esqueleto debe dejarlos funcionando y esta sección debe quedar al día.
+Requieren Node 26.13.1 con npm 11.20 (`.nvmrc`) y Docker en ejecución. Todos se corren desde la raíz.
 
-- `npm run lint`, `npm run typecheck`, `npm test` en la raíz, para todos los workspaces.
-- `npm run test:bd`: las 26 pruebas de reglas de base, con el rol `ipss_api`.
-- `npm run dev`: API y web en local contra PostgreSQL en Docker.
+- `npm ci`: instala según el lockfile. `.npmrc` aplica `min-release-age=7`, versiones exactas y `strict-allow-scripts` (ADR 0008).
+- `npm run dev`:
+  - levanta la base de desarrollo (`infra/compose.desarrollo.yaml`, 127.0.0.1:55432);
+  - aplica las migraciones con el rol migrador;
+  - arranca la API en http://127.0.0.1:3000/api y la web en http://127.0.0.1:5173, ambas con recarga; la web llega a `/api` por el proxy de Vite.
+- `npm run lint`, `npm run typecheck`, `npm run build`: cubren todos los workspaces y generan antes el cliente de Prisma.
+- `npm test`: recrea la base de pruebas, corre las 26 reglas y después Jest (API) y Vitest (web).
+- `npm run test:bd`: solo las 26 pruebas de reglas de base, con el rol `ipss_api`. Corren sobre `bd-pruebas` (127.0.0.1:55433, en memoria), que se recrea en cada corrida.
 - `docker compose -f infra/compose.yaml up -d`: los cinco servicios.
+  - Si faltan las imágenes, las construye. Agregar `--build` para reconstruirlas después de un cambio.
+  - Lee `infra/.env` (copia de `infra/.env.ejemplo`) y se detiene con un mensaje si falta una variable obligatoria.
+  - `PUERTO_HTTP` y `PUERTO_HTTPS` cambian los puertos publicados.
+  - `migrar` termina con código 0 y los otros cuatro servicios quedan *healthy*.
+- Deriva entre esquema y migraciones, desde `apps/api` con `DATABASE_URL_MIGRADOR` y `DATABASE_URL_SOMBRA`: `npx prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code`.
+- Al subir de versión `argon2` o Prisma hay que volver a aprobar su script de instalación con `npm install-scripts approve <paquete>` (ADR 0008).
 
 ## Arquitectura de la API
 
