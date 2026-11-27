@@ -288,7 +288,13 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
     - Un SIGINT doble salió con 130 y un SIGTERM doble con 143. Un SIGINT al grupo, al inicio y durante la bajada, salió con 130. En los tres casos quedaron 0 contenedores y 0 volúmenes.
     - Lint en 0.
     - El padre volvió a correr `npm run e2e`: 3 de 3, sin restos.
-- [ ] C3f: prueba que distinga la corrección del modo COPY (escritor de infraestructura).
+- [x] C3f (commit de esta tarea):
+  - **Escena nueva.**
+    - La base `ipss_cortado` tiene una tabla de una sola columna. Su volcado guarda 3000 filas y la base viva queda en 1000.
+    - El volcado se corta dentro del COPY y `restaurar` corre con `PGDATABASE=ipss_cortado`.
+    - Se exige código 1, que las filas sigan en 1000 → 1000 y que haya 0 filas con SQL inyectado.
+  - **Discrimina.** El escritor quitó a propósito el `\.` y la escena falló («antes 1000, después 2821»); luego devolvió `restaurar.sh` a su versión, que quedó sin cambios.
+  - **Evidencia.** El padre volvió a correr `npm run test:respaldo` con resultado correcto: «corte al 99 %; código 1, filas 1000 -> 1000, filas con SQL inyectado: 0». Lint en 0.
 - [x] C4b (commit de esta tarea):
   - **Señales.** `scripts/e2e.mjs` pasa de `spawnSync` a `spawn`, para poder atender las señales. SIGINT y SIGTERM detienen el proceso hijo y bajan el proyecto con sus volúmenes, una sola vez gracias a una promesa compartida, y salen con 130 o 143.
   - **Fila del flujo 2.** El registro sale del JSON de la respuesta ya filtrada y la prueba espera el `href` exacto en la primera fila.

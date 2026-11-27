@@ -157,6 +157,35 @@ function horaHaceDosHoras() {
   return antes.toLocaleTimeString('en-GB', { timeZone: 'America/Santiago', hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
+/**
+ * Trunca `origen` (un bd.dump) y deja el resultado en `destino`/bd.dump en un punto donde `pg_restore --list` aún
+ * funciona pero el flujo de datos muere dentro de un `COPY ... FROM stdin` (el SQL emitido termina con un COPY sin
+ * cerrar). Prueba cortes de atrás hacia adelante, cada 3 %, y se queda con el primero que sirve. Recalcula SHA256SUMS
+ * para simular un daño que las sumas no detectan.
+ */
+function cortarDentroDeCopy(origen, destino) {
+  const tamano = Number(enRespaldo(`wc -c < ${origen}`).stdout.trim());
+  const sondas = [];
+  for (let fraccion = 99; fraccion >= 20; fraccion -= 3) {
+    const bytes = Math.floor((tamano * fraccion) / 100);
+    const sonda = enRespaldo(`
+      set -u
+      head -c ${String(bytes)} ${origen} > ${destino}/bd.dump
+      pg_restore --list ${destino}/bd.dump > /dev/null || { echo "lista=falla"; exit 0; }
+      pg_restore --clean --if-exists --file=/tmp/sonda.sql ${destino}/bd.dump 2> /dev/null && { echo "restaura=bien"; exit 0; }
+      abiertos=$(grep -c 'FROM stdin;$' /tmp/sonda.sql); cerrados=$(grep -c '^\\\\.$' /tmp/sonda.sql)
+      echo "copy_abiertos=$abiertos cerrados=$cerrados"; rm -f /tmp/sonda.sql
+    `).stdout.trim();
+    sondas.push(`${String(fraccion)} %: ${sonda}`);
+    const m = /copy_abiertos=(\d+) cerrados=(\d+)/.exec(sonda);
+    if (m && Number(m[1]) > Number(m[2])) {
+      enRespaldo(`cd ${destino} && sha256sum bd.dump evidencias.tar > SHA256SUMS`);
+      return { fraccion, bytes, tamano, sonda, intentos: sondas.length };
+    }
+  }
+  throw new Error(`Ningún corte dejó un COPY sin cerrar; la prueba no reproduce el caso:\n${sondas.join('\n')}`);
+}
+
 /** Ejecuta un script de sh dentro del contenedor `respaldo` y devuelve su salida. */
 function enRespaldo(script, variables = {}) {
   const env = Object.entries(variables).flatMap(([clave, valor]) => ['-e', `${clave}=${valor}`]);
@@ -320,30 +349,8 @@ rollback;
   // verdad: pg_restore falla y el SQL que alcanzó a emitir termina con un COPY sin cerrar.
   const cortado = `${nombre}_cortado`;
   enRespaldo(`rm -rf /respaldos/${cortado}; cp -r ${directorio} /respaldos/${cortado}`);
-  let corte = null;
-  const sondas = [];
-  const tamano = Number(enRespaldo(`wc -c < ${directorio}/bd.dump`).stdout.trim());
-  // De atrás hacia adelante: el primer corte que aún deja leer el índice y mata un COPY es el más cercano al final.
-  for (let fraccion = 99; fraccion >= 20; fraccion -= 3) {
-    const bytes = Math.floor((tamano * fraccion) / 100);
-    const sonda = enRespaldo(`
-      set -u; D=/respaldos/${cortado}
-      head -c ${String(bytes)} ${directorio}/bd.dump > $D/bd.dump
-      pg_restore --list $D/bd.dump > /dev/null || { echo "lista=falla"; exit 0; }
-      pg_restore --clean --if-exists --file=/tmp/sonda.sql $D/bd.dump 2> /dev/null && { echo "restaura=bien"; exit 0; }
-      abiertos=$(grep -c 'FROM stdin;$' /tmp/sonda.sql); cerrados=$(grep -c '^\\\\.$' /tmp/sonda.sql)
-      echo "copy_abiertos=$abiertos cerrados=$cerrados"; rm -f /tmp/sonda.sql
-    `).stdout.trim();
-    sondas.push(`${String(fraccion)} %: ${sonda}`);
-    const m = /copy_abiertos=(\d+) cerrados=(\d+)/.exec(sonda);
-    if (m && Number(m[1]) > Number(m[2])) {
-      corte = { fraccion, bytes, tamano, sonda };
-      break;
-    }
-  }
-  if (!corte) throw new Error(`Ningún corte dejó un COPY sin cerrar; la prueba no reproduce el caso:\n${sondas.join('\n')}`);
-  enRespaldo(`cd /respaldos/${cortado} && sha256sum bd.dump evidencias.tar > SHA256SUMS`);
-  console.log(`   intentos de corte: ${String(sondas.length)}; corte al ${String(corte.fraccion)} % (${String(corte.bytes)} de ${String(corte.tamano)} bytes): --list pasa, ${corte.sonda}; SHA256SUMS recalculado`);
+  const corte = cortarDentroDeCopy(`${directorio}/bd.dump`, `/respaldos/${cortado}`);
+  console.log(`   intentos de corte: ${String(corte.intentos)}; corte al ${String(corte.fraccion)} % (${String(corte.bytes)} de ${String(corte.tamano)} bytes): --list pasa, ${corte.sonda}; SHA256SUMS recalculado`);
 
   const huellaSesiones = () => psql("select count(*) filter (where revocado_en is null), md5(string_agg(coalesce(revocado_en::text, '-'), ',' order by id)) from refresh_token");
   const antesCorte = fotografiar();
@@ -356,6 +363,38 @@ rollback;
   if (trasCorte.length > 0) throw new Error(`El volcado cortado dejó cambios en la base:\n${trasCorte.join('\n')}`);
   if (huellaSesiones() !== sesionesAntes) throw new Error('El volcado cortado cambió el estado de revocación de los refresh tokens');
   console.log(`   código ${String(corto.status)}; mismos conteos, md5, permisos y triggers; refresh tokens sin tocar (${sesionesAntes.split('|')[0]} vigentes)`);
+
+  paso('Un COPY de una sola columna no puede tragarse el SQL inyectado');
+  // En una tabla de varias columnas las líneas inyectadas fallan solas como filas mal formadas y el corte anterior
+  // aborta igual aunque falte el terminador `\.`. Con UNA columna de texto, cualquier línea es una fila válida:
+  // sin `\.` psql confirmaría una restauración parcial. Esta escena es la que distingue ambos casos.
+  const mono = `${nombre}_monocolumna`;
+  const bdMono = 'ipss_cortado';
+  compose(['exec', '-T', 'bd', 'psql', '-U', 'postgres', '-d', 'postgres', '-c', `drop database if exists ${bdMono}`, '-c', `create database ${bdMono} owner ipss_migrador`]);
+  const sembrarMono = enRespaldo(`
+    set -eu
+    export PGDATABASE=${bdMono}
+    psql -q -c "create table copia as select md5(g::text) || md5(g::text) as m from generate_series(1, 3000) g"
+    rm -rf /respaldos/${mono}; mkdir /respaldos/${mono} /tmp/vacio
+    pg_dump --format=custom --file=/respaldos/${mono}/origen.dump
+    tar -C /tmp/vacio -cf /respaldos/${mono}/evidencias.tar .
+    psql -q -c "delete from copia where m not in (select m from copia limit 1000)"
+  `);
+  if (sembrarMono.status !== 0) throw new Error(`No se pudo preparar la base de una columna: ${sembrarMono.stderr}`);
+  const corteMono = cortarDentroDeCopy(`/respaldos/${mono}/origen.dump`, `/respaldos/${mono}`);
+  enRespaldo(`rm -f /respaldos/${mono}/origen.dump`);
+  const psqlMono = (sql) => compose(['exec', '-T', 'bd', 'psql', '-U', 'postgres', '-d', bdMono, '-At', '-c', sql]).stdout.trim();
+  const filasAntes = psqlMono('select count(*) from copia');
+  if (filasAntes !== '1000') throw new Error(`La tabla de una columna debía tener 1000 filas y tiene ${filasAntes}`);
+  const monoFalla = compose(['--profile', 'restauracion', 'run', '--rm', '--no-TTY', '-e', `PGDATABASE=${bdMono}`, 'restaurar', mono], { permitirFallo: true });
+  const filasDespues = psqlMono('select count(*) from copia');
+  const basura = psqlMono("select count(*) from copia where m like '%error_de_restauracion_abortar%' or m like '%REVOCADOS%' or m like '%pg_restore falló%'");
+  compose(['exec', '-T', 'bd', 'psql', '-U', 'postgres', '-d', 'postgres', '-c', `drop database ${bdMono}`]);
+  enRespaldo(`rm -rf /respaldos/${mono} /tmp/vacio`);
+  if (monoFalla.status !== 1) throw new Error(`La restauración del volcado de una columna debía salir con 1 y salió con ${String(monoFalla.status)}`);
+  if (filasDespues !== filasAntes) throw new Error(`La restauración fallida confirmó filas: antes ${filasAntes}, después ${filasDespues}`);
+  if (basura !== '0') throw new Error(`Quedaron ${basura} filas con SQL inyectado dentro de la tabla`);
+  console.log(`   corte al ${String(corteMono.fraccion)} %; código ${String(monoFalla.status)}, filas ${filasAntes} -> ${filasDespues}, filas con SQL inyectado: ${basura}`);
 
   paso('Retención y salud con directorios de prueba (dentro del volumen de respaldos)');
   const retencion = enRespaldo(`
