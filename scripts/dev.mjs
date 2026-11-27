@@ -10,6 +10,8 @@ const dirApi = resolve(raiz, 'apps/api');
 // Valores de desarrollo; si el entorno ya define alguno, ese gana.
 const entornoDev = {
   DATABASE_URL: 'postgresql://ipss_api:api_dev@127.0.0.1:55432/ipss',
+  // Solo para desarrollo local: público en el repositorio, así que nunca sirve fuera de este script.
+  JWT_SECRETO: 'secreto-solo-para-desarrollo-local-no-usar-en-produccion',
   PORT: '3000',
   HOST: '127.0.0.1',
 };
@@ -70,6 +72,13 @@ ejecutarPaso('Generando el cliente de Prisma', 'npx', ['prisma', 'generate'], {
 ejecutarPaso('Aplicando migraciones', 'npx', ['prisma', 'migrate', 'deploy'], {
   cwd: dirApi,
   env: entornoMigrador,
+});
+// La semilla se compila con la API; un build inicial la deja lista antes de sembrar.
+// Es idempotente: no duplica catálogos ni pisa contraseñas ya creadas.
+ejecutarPaso('Compilando la API', 'npx', ['tsc', '-p', 'tsconfig.build.json'], { cwd: dirApi });
+ejecutarPaso('Sembrando datos de ejemplo del prototipo', process.execPath, ['dist/cli/semilla.js'], {
+  cwd: dirApi,
+  env: entornoApi,
 });
 
 lanzar('tsc', 'npx', ['tsc', '-p', 'tsconfig.build.json', '--watch', '--preserveWatchOutput'], {

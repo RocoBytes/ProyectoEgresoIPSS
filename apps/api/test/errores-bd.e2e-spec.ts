@@ -4,6 +4,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import { IsString } from 'class-validator';
 import { Client } from 'pg';
+import { Publica } from '../src/acceso/roles';
 import { AppModule } from '../src/app.module';
 import { configurarApp } from '../src/app';
 import { CONFIGURACION, type Configuracion } from '../src/configuracion';
@@ -19,6 +20,8 @@ class CuerpoDto {
 
 // Controlador solo de pruebas: se registra únicamente en este módulo de testing, nunca en AppModule.
 // Dispara cada error real de la base a través de PrismaService y del filtro global.
+// @Publica: estas rutas ejercitan el filtro de errores y no tienen sesión; sin eso el guard global las rechazaría.
+@Publica()
 @Injectable()
 @Controller('pruebas')
 class ControladorPruebas {
@@ -93,7 +96,7 @@ async function crearFixtures(): Promise<Fixtures> {
     const nombreCanal = `canal-${sufijo}`;
     const canalId = await insertar('INSERT INTO canal (nombre) VALUES ($1) RETURNING id', [nombreCanal]);
     const usuarioId = await insertar(
-      `INSERT INTO usuario (correo, nombre, hash_contrasena, rol) VALUES ($1, 'Usuario de prueba', 'hash', 'DIRECTOR_SECTORIAL') RETURNING id`,
+      `INSERT INTO usuario (correo, nombre, hash_contrasena, rol) VALUES ($1, 'Usuario de prueba', '$argon2id$hash-de-prueba', 'DIRECTOR_SECTORIAL') RETURNING id`,
       [`${sufijo}@ejemplo.cl`],
     );
     const sesionId = await insertar(
@@ -145,7 +148,7 @@ describe('traducción de errores de la base y de la entrada (e2e contra PostgreS
 
   beforeAll(async () => {
     fx = await crearFixtures();
-    const config: Configuracion = { urlBaseDeDatos: URL_API, puerto: 0, host: '127.0.0.1', saltosProxy: undefined };
+    const config: Configuracion = { urlBaseDeDatos: URL_API, puerto: 0, host: '127.0.0.1', saltosProxy: undefined, jwtSecreto: 'secreto-de-pruebas-de-al-menos-32-caracteres' };
     const modulo = await Test.createTestingModule({ imports: [AppModule], controllers: [ControladorPruebas] })
       .overrideProvider(CONFIGURACION)
       .useValue(config)
@@ -201,7 +204,7 @@ describe('traducción de errores de la base y de la entrada (e2e contra PostgreS
   it('una propiedad de más en el cuerpo responde 400 (forbidNonWhitelisted)', async () => {
     const r = await enviar('POST', 'dto', JSON.stringify({ nombre: 'a', intruso: 1 }));
     expect(r.estado).toBe(400);
-    expect(r.cuerpo.message).toEqual(['property intruso should not exist']);
+    expect(r.cuerpo).toMatchObject({ message: 'La solicitud tiene datos inválidos', errores: [{ campo: 'intruso', mensaje: 'Campo no permitido' }] });
     expect(r.cuerpo.idPeticion).toBeDefined();
   });
 

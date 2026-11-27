@@ -16,7 +16,7 @@ const sector = await idDe(`INSERT INTO sector (nombre) VALUES ('Sector de prueba
 const carrera = await idDe(`INSERT INTO carrera (sector_id, nombre) VALUES ($1, 'Carrera de prueba') RETURNING id`, [sector]);
 const canal = await idDe(`INSERT INTO canal (nombre) VALUES ('Comité sectorial') RETURNING id`);
 const crearUsuario = (n) => idDe(
-  `INSERT INTO usuario (correo, nombre, hash_contrasena, rol) VALUES ($1, $2, 'hash-de-prueba', 'DIRECTOR_CARRERA') RETURNING id`,
+  `INSERT INTO usuario (correo, nombre, hash_contrasena, rol) VALUES ($1, $2, '$argon2id$hash-de-prueba', 'DIRECTOR_CARRERA') RETURNING id`,
   [`u${n}@instituto.example`, `Usuario ${n}`],
 );
 const u1 = await crearUsuario(1);

@@ -5,3 +5,13 @@
 export type EstadoRegistro = 'ABIERTO' | 'CERRADO' | 'ANULADO';
 // La extensión .js es obligatoria: este paquete es ESM y la API lo lee bajo `nodenext`.
 export type { RespuestaSalud } from './salud.js';
+export type {
+  Alcance,
+  ErrorValidacion,
+  ReferenciaNombrada,
+  RespuestaErrorValidacion,
+  RespuestaCredencialesIncorrectas,
+  RespuestaCuentaBloqueada,
+  Rol,
+  UsuarioActual,
+} from './acceso.js';
