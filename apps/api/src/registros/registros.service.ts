@@ -181,10 +181,8 @@ export class RegistrosService {
     };
   }
 
-  async motivoDeConsulta(usuario: UsuarioAutenticado, carrera: string): Promise<string> {
-    if (usuario.rol === 'ASEGURAMIENTO_CALIDAD') return 'Tu perfil es de consulta: puedes revisar y descargar este registro, pero no modificar.';
-    const { descripcion } = await this.alcance.alcanceDe(usuario);
-    return `${carrera} está fuera de tu alcance (${descripcion}). Puedes consultar este registro, pero no modificar.`;
+  motivoDeConsulta(usuario: UsuarioAutenticado, carrera: string): Promise<string> {
+    return this.alcance.motivoDeConsulta(usuario, carrera, 'este registro');
   }
 
   async editar(usuario: UsuarioAutenticado, id: string, cambios: EdicionRegistro): Promise<RespuestaEdicion> {

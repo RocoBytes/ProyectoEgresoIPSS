@@ -134,3 +134,11 @@ export class SubidaEvidenciaCierreInterceptor extends SubidaBase {
     super(config, [{ name: 'evidencia', maxCount: 1 }], 1, 'Adjunta una sola evidencia.');
   }
 }
+
+/** Versión de malla: un solo `archivo`. */
+@Injectable()
+export class SubidaMallaInterceptor extends SubidaBase {
+  constructor(@Inject(CONFIGURACION) config: Configuracion) {
+    super(config, [{ name: 'archivo', maxCount: 1 }], 1, 'Adjunta un solo archivo.');
+  }
+}

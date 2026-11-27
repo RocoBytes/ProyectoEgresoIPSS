@@ -30,3 +30,4 @@ export type {
   RespuestaListadoRegistros,
 } from './registros.js';
 export type { ConteoPorEstado, IndicadoresPanel, PanelAnio, PanelCanal, PanelGrupo, PanelMes, PanelNivel, PanelSesion, RespuestaPanel } from './reportes.js';
+export type { DatosMallaNueva, RespuestaMallas, VersionMallaListada } from './mallas.js';
