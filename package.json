@@ -5,7 +5,8 @@
   "workspaces": [
     "packages/shared",
     "apps/api",
-    "apps/web"
+    "apps/web",
+    "e2e"
   ],
   "engines": {
     "node": ">=26.13.1 <27"
@@ -15,9 +16,13 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "test:bd": "npm run test:bd -w @ipss/api",
+    "test:respaldo": "node scripts/prueba-respaldo.mjs",
     "test": "npm run test:bd && npm run test --workspaces --if-present",
     "dev": "node scripts/dev.mjs",
-    "semilla": "npm run semilla -w @ipss/api"
+    "semilla": "npm run semilla -w @ipss/api",
+    "catalogos": "npm run catalogos -w @ipss/api --",
+    "usuarios": "npm run usuarios -w @ipss/api --",
+    "e2e": "node scripts/e2e.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

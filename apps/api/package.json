@@ -8,6 +8,8 @@
     "generar": "prisma generate",
     "migrar": "prisma migrate deploy",
     "semilla": "node --env-file-if-exists=.env dist/cli/semilla.js",
+    "catalogos": "node --env-file-if-exists=.env dist/cli/catalogos.js",
+    "usuarios": "node --env-file-if-exists=.env dist/cli/usuarios.js",
     "test:bd": "node test/bd/ejecutar.mjs",
     "start": "node --env-file-if-exists=.env dist/main.js",
     "test": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --runInBand"

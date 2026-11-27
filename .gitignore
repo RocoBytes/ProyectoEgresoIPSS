@@ -17,3 +17,7 @@ apps/api/src/generated/
 
 # Evidencias de desarrollo (archivos subidos)
 .datos/
+
+# Informe y rastros de Playwright (se suben como artefacto en CI)
+e2e/informe/
+e2e/resultados/

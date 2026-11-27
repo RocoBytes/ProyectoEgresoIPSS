@@ -35,6 +35,10 @@ Requieren Node 26.13.1 con npm 11.20 (`.nvmrc`) y Docker en ejecución. Todos se
 - `npm run lint`, `npm run typecheck`, `npm run build`: cubren todos los workspaces y generan antes el cliente de Prisma.
 - `npm test`: recrea la base de pruebas, corre las 26 reglas y después Jest (API) y Vitest (web).
 - `npm run test:bd`: solo las 26 pruebas de reglas de base, con el rol `ipss_api`. Corren sobre `bd-pruebas` (127.0.0.1:55433, en memoria), que se recrea en cada corrida.
+- `npm run catalogos -- <planilla.xlsx | -> [--prueba]`: carga los catálogos desde una planilla en una sola transacción (ADR 0018). `-- --plantilla <salida.xlsx | ->` genera una de ejemplo.
+- `npm run usuarios -- <crear|desactivar|activar|restablecer-clave|listar> ...`: administra cuentas por línea de comandos (ADR 0018).
+- `npm run e2e`: levanta la pila completa en Compose (proyecto `ipss-e2e`), siembra y corre los tres flujos de Playwright; luego la baja con sus volúmenes. Instalar Chromium una vez con `npx playwright install chromium` (ADR 0020).
+- `npm run test:respaldo`: respalda, destruye, restaura y compara en un proyecto Compose propio (ADR 0019).
 - `docker compose -f infra/compose.yaml up -d`: los cinco servicios.
   - Si faltan las imágenes, las construye. Agregar `--build` para reconstruirlas después de un cambio.
   - Lee `infra/.env` (copia de `infra/.env.ejemplo`) y se detiene con un mensaje si falta una variable obligatoria.
