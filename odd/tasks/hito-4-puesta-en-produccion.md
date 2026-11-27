@@ -59,7 +59,7 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
 
 - [x] **C1 Catálogos reales.** CLI `catalogos` con planilla Excel (exceljs ya instalado), modo de prueba, plantilla generada, transacción, carga repetible sin duplicar y lectura por stdin para usarlo dentro del contenedor. Ruta: delegada (escritor de la API).
 - [x] **C1b Hallazgos de la revisión de C1.** Limpieza de temporales esperada antes de responder, prueba unitaria que la distingue y pruebas de los límites de entrada del comando de catálogos. Ruta: delegada (escritor de la API).
-- [ ] **C2 Usuarios.** CLI `usuarios` (crear con alcance, desactivar, activar, restablecer clave, listar). Revoca sesiones al desactivar o restablecer y funciona con `NODE_ENV=production`. Ruta: delegada (mismo escritor).
+- [x] **C2 Usuarios.** CLI `usuarios` (crear con alcance, desactivar, activar, restablecer clave, listar). Revoca sesiones al desactivar o restablecer y funciona con `NODE_ENV=production`. Ruta: delegada (mismo escritor).
 - [ ] **C3 Respaldo y restauración.** Servicio `respaldo`, scripts para respaldar y restaurar, y prueba de restauración. Ruta: delegada (escritor de infraestructura).
 - [ ] **C4 Punta a punta.** Playwright 1.65.1, tres flujos, comando `npm run e2e` y job en CI. Ruta: delegada.
 - [ ] **C5 Entrega.** `handle_errors` en Caddy, publicación en GHCR por etiqueta, guía de instalación, README y contenido de `infra/.env.ejemplo` para el usuario. Ruta: delegada.
@@ -119,7 +119,24 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
     - `--plantilla` que no pisa un archivo existente;
     - más de 20.000 filas.
   - **Evidencia:** `npm test` con salida 0, 26 reglas, Jest 283 (26 suites) y Vitest 147; lint y tipos en 0. El padre volvió a correr `npm test` con el mismo resultado.
+  - Commit `4758a86`.
+- C2 (commit de esta tarea):
+  - Archivos: `cli/administrar-usuarios.ts` y `cli/usuarios.ts`, scripts `usuarios` y ADR 0018.
+  - **Comandos:**
+    - `crear`: correo normalizado, reglas de alcance por rol y cuenta con su alcance creada en una sola transacción.
+    - `desactivar`: revoca las sesiones; el guard consulta la base, así que la sesión abierta cae al instante.
+    - `activar`.
+    - `restablecer-clave`: limpia el bloqueo y revoca las sesiones.
+    - `listar`: nunca lee el hash.
+  - **Clave temporal:** 24 caracteres (144 bits), se imprime una sola vez por stdout y el aviso sale por stderr. No pasa por ningún logger.
+  - **Pruebas:** 7, contra la base real.
+  - **Evidencia:**
+    - `npm test` con salida 0, 26 reglas, Jest 290 (27 suites) y Vitest 147; lint y tipos en 0. El padre volvió a correr `npm test` con el mismo resultado.
+    - `listar` funciona con `NODE_ENV=production`.
+  - **Brechas para el usuario** (anotadas en el ADR 0018):
+    - No hay pantalla para cambiar la clave propia.
+    - Un alcance mal cargado no se puede corregir: `ipss_api` no tiene DELETE sobre `usuario_sector` ni `usuario_carrera`, y el correo es único. Corregirlo exige una decisión del usuario: dar ese permiso o hacerlo con el rol migrador.
 
 ## Próximo paso
 
-C1 y C2 (escritor de la API).
+C3 respaldo y restauración.
