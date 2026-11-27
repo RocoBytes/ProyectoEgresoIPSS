@@ -12,11 +12,10 @@ const entrada = (...trozos: Buffer[]): AsyncIterable<Uint8Array> => Readable.fro
 describe('catalogos: guardas de entrada y códigos de salida', () => {
   let dir: string;
   let errores: string[];
-  let salida: jest.SpyInstance;
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), 'ipss-catalogos-'));
     errores = [];
-    salida = jest.spyOn(console, 'error').mockImplementation((...a: unknown[]) => void errores.push(a.map(String).join(' ')));
+    jest.spyOn(console, 'error').mockImplementation((...a: unknown[]) => void errores.push(a.map(String).join(' ')));
     jest.spyOn(console, 'log').mockImplementation(() => undefined);
   });
   afterEach(async () => {
@@ -84,11 +83,29 @@ describe('catalogos: guardas de entrada y códigos de salida', () => {
     const primera = await readFile(ruta);
     expect((await leerPlanilla(primera)).errores).toEqual([]);
     expect(await principal(['--plantilla', ruta])).toBe(1);
-    expect(mensajes()).toContain('EEXIST');
+    expect(mensajes()).toContain('ya existe: no se sobrescribe');
     expect((await readFile(ruta)).equals(primera)).toBe(true);
     const escrito: Uint8Array[] = [];
     expect(await principal(['--plantilla', '-'], { stdout: { write: (c) => escrito.push(c) } })).toBe(0);
     expect(Buffer.from(escrito[0] ?? new Uint8Array()).subarray(0, 2).toString()).toBe('PK');
+  });
+
+  it('--plantilla no toma otra bandera como nombre de archivo', async () => {
+    expect(await principal(['--plantilla', '--prueba'])).toBe(2);
+    expect(await principal(['--prueba', '--plantilla', join(dir, 'x.xlsx')])).toBe(2);
+  });
+
+  it('acepta exactamente 20.000 filas de datos (20.001 con el encabezado)', async () => {
+    const libro = new Workbook();
+    const hoja = libro.addWorksheet('Sectores');
+    hoja.addRow(['Nombre']);
+    for (let i = 0; i < MAXIMO_FILAS_POR_HOJA; i += 1) hoja.addRow([`S${String(i)}`]);
+    libro.addWorksheet('Carreras').addRow(['Sector', 'Nombre']);
+    libro.addWorksheet('Asignaturas').addRow(['Carrera', 'Tipo', 'Nombre']);
+    libro.addWorksheet('Canales').addRow(['Nombre', 'Activo']);
+    const { planilla, errores: e } = await leerPlanilla(Buffer.from(await libro.xlsx.writeBuffer()));
+    expect(e).toEqual([]);
+    expect(planilla.sectores).toHaveLength(MAXIMO_FILAS_POR_HOJA);
   });
 
   it('rechaza una hoja con más de 20.000 filas de datos', async () => {
@@ -101,6 +118,5 @@ describe('catalogos: guardas de entrada y códigos de salida', () => {
     libro.addWorksheet('Canales').addRow(['Nombre', 'Activo']);
     const { errores: e } = await leerPlanilla(Buffer.from(await libro.xlsx.writeBuffer()));
     expect(e).toEqual([{ hoja: 'Sectores', fila: 0, mensaje: 'La hoja tiene más de 20000 filas.' }]);
-    expect(salida).toBeDefined();
   });
 });

@@ -76,7 +76,7 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
 
 - Rama `hito-4`, encima de `hito-3`. Un commit por tarea como mínimo.
 - Previsión: unas 2.000 líneas, en PR encadenados. La estrategia de cadena sigue pendiente del usuario y se decide antes del push. No se hace push.
-- Límite revisado por la revisión nativa: `5cbc52e`.
+- Límite revisado por la revisión nativa: `10d5d8e`.
 
 ## Progreso y evidencia
 
@@ -136,6 +136,26 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
   - **Brechas para el usuario** (anotadas en el ADR 0018):
     - No hay pantalla para cambiar la clave propia.
     - Un alcance mal cargado no se puede corregir: `ipss_api` no tiene DELETE sobre `usuario_sector` ni `usuario_carrera`, y el correo es único. Corregirlo exige una decisión del usuario: dar ese permiso o hacerlo con el rol migrador.
+  - Commit `10d5d8e`.
+  - Revisión nativa del tramo `5cbc52e..10d5d8e` (C1b y C2): riesgo medio, 732 líneas, autorizada por la instrucción del usuario. Se aprobó y quedó reconocida. El límite revisado pasa a `10d5d8e`.
+  - La revisión dejó una advertencia y tres sugerencias, que pasan a C2b:
+    - (advertencia) un error inesperado del comando de usuarios se informaba como problema de conexión;
+    - un flag se aceptaba como valor de otro;
+    - faltaba la prueba del borde de 20.000 filas;
+    - había una aserción que no probaba nada.
+- [x] C2b (commit de esta tarea):
+  - **Errores claros.** `cli/errores-cli.ts` con `describirError` distingue, con mensajes accionables sin texto crudo, consulta ni pila:
+    - unicidad (P2002 o 23505);
+    - permiso denegado (42501);
+    - credenciales;
+    - base inexistente;
+    - sin conexión;
+    - archivos (`EROFS` indica usar `-` en producción).
+
+    El escritor comprobó contra la base la forma real de cada error.
+  - **Cierre y argumentos.** `$disconnect` va protegido y los puntos de entrada tienen un manejador de rechazo. Un flag usado como valor es error de uso (salida 2) en los dos comandos; `--plantilla --prueba` escribía un archivo llamado `--prueba`.
+  - **Pruebas:** borde de 20.000 filas aceptado y 6 pruebas de errores reales.
+  - **Evidencia:** `npm test` con 26 reglas, Jest 299 (28 suites) y Vitest 147; lint y tipos en 0.
 
 ## Próximo paso
 

@@ -2,6 +2,7 @@ import { readFile, stat, writeFile } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
+import { describirError, ErrorDeUso } from './errores-cli';
 import { cargarCatalogos, generarPlantilla, MAXIMO_BYTES_PLANILLA, type ResultadoCarga } from './cargar-catalogos';
 
 const USO = `Uso:
@@ -23,17 +24,17 @@ async function leerEntrada(origen: string, stdin: AsyncIterable<Uint8Array>): Pr
     for await (const trozo of stdin) {
       const b = Buffer.from(trozo);
       total += b.length;
-      if (total > MAXIMO_BYTES_PLANILLA) throw new Error(demasiado);
+      if (total > MAXIMO_BYTES_PLANILLA) throw new ErrorDeUso(demasiado);
       trozos.push(b);
     }
     contenido = Buffer.concat(trozos);
   } else {
     const ruta = rutaDe(origen);
-    if (!ruta.toLowerCase().endsWith('.xlsx')) throw new Error('El archivo debe ser una planilla .xlsx.');
-    if ((await stat(ruta)).size > MAXIMO_BYTES_PLANILLA) throw new Error(demasiado);
+    if (!ruta.toLowerCase().endsWith('.xlsx')) throw new ErrorDeUso('El archivo debe ser una planilla .xlsx.');
+    if ((await stat(ruta)).size > MAXIMO_BYTES_PLANILLA) throw new ErrorDeUso(demasiado);
     contenido = await readFile(ruta);
   }
-  if (!contenido.subarray(0, 4).equals(FIRMA_ZIP)) throw new Error('El contenido no es una planilla .xlsx.');
+  if (!contenido.subarray(0, 4).equals(FIRMA_ZIP)) throw new ErrorDeUso('El contenido no es una planilla .xlsx.');
   return contenido;
 }
 
@@ -75,7 +76,7 @@ export async function principal(args: string[], dependencias: Dependencias = {})
   try {
     return await ejecutar(args, dependencias);
   } catch (error) {
-    console.error(`La carga de catálogos falló: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`La carga de catálogos falló: ${describirError(error)}`);
     return 1;
   }
 }
@@ -83,7 +84,8 @@ export async function principal(args: string[], dependencias: Dependencias = {})
 async function ejecutar(args: string[], dependencias: Dependencias): Promise<number> {
   if (args[0] === '--plantilla') {
     const salida = args[1];
-    if (salida === undefined || args.length > 2) {
+    // `-` es la salida estándar; cualquier otro valor con `--` es otra bandera y no un nombre de archivo.
+    if (salida === undefined || args.length > 2 || salida.startsWith('--')) {
       console.error(USO);
       return 2;
     }
@@ -117,11 +119,14 @@ async function ejecutar(args: string[], dependencias: Dependencias): Promise<num
     (resultado.errores.length > 0 ? console.error : console.log)(lineas.join('\n'));
     return resultado.errores.length > 0 ? 1 : 0;
   } finally {
-    await prisma.$disconnect();
+    await prisma.$disconnect().catch(() => undefined);
   }
 }
 
 // Solo corre al ejecutar el archivo, no al importarlo desde una prueba. Permitido con NODE_ENV=production: es la vía de TI.
 if (require.main === module) {
-  void principal(process.argv.slice(2)).then((codigo) => process.exit(codigo));
+  principal(process.argv.slice(2)).then(
+    (codigo) => process.exit(codigo),
+    () => process.exit(1),
+  );
 }

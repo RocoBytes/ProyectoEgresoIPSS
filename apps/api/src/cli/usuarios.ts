@@ -1,7 +1,8 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { ContrasenasService } from '../acceso/contrasenas.service';
 import { PrismaClient } from '../generated/prisma/client';
-import { activarUsuario, crearUsuario, desactivarUsuario, ErrorUsuarios, listarUsuarios, restablecerClave, type ResumenUsuario } from './administrar-usuarios';
+import { describirError } from './errores-cli';
+import { activarUsuario, crearUsuario, desactivarUsuario, listarUsuarios, restablecerClave, type ResumenUsuario } from './administrar-usuarios';
 
 const USO = `Uso:
   usuarios crear --correo <c> --nombre "<n>" --rol DIRECTOR_SECTORIAL|DIRECTOR_CARRERA|ASEGURAMIENTO_CALIDAD [--sector "<nombre>"]... [--carrera "<nombre>"]...
@@ -36,7 +37,8 @@ function leerOpciones(args: string[]): Opciones | undefined {
   for (let i = 0; i < args.length; i += 2) {
     const bandera = args[i];
     const valor = args[i + 1];
-    if (bandera === undefined || valor === undefined || !(BANDERAS as readonly string[]).includes(bandera)) return undefined;
+    // Un valor que empieza por `--` es otra bandera a la que le faltó su valor, no un dato.
+    if (bandera === undefined || valor === undefined || valor.startsWith('--') || !(BANDERAS as readonly string[]).includes(bandera)) return undefined;
     if (bandera === '--sector') opciones.sectores.push(valor);
     else if (bandera === '--carrera') opciones.carreras.push(valor);
     else {
@@ -108,11 +110,12 @@ export async function principal(args: string[], dependencias: Dependencias = {})
     }
     return 0;
   } catch (e) {
-    // Solo mensajes propios; un error inesperado no muestra su detalle (puede traer datos de la fila).
-    error(e instanceof ErrorUsuarios ? e.message : 'La operación falló por un error inesperado. Revisa la conexión a la base.');
+    // Mensaje propio según la causa; nunca el texto original del error ni su pila (pueden traer datos de la fila).
+    error(describirError(e));
     return 1;
   } finally {
-    await prisma.$disconnect();
+    // Un fallo al cerrar la conexión no debe escapar de `principal` ni tapar el resultado.
+    await prisma.$disconnect().catch(() => undefined);
   }
 }
 
@@ -124,5 +127,8 @@ function mostrarClave(salida: (l: string) => void, error: (l: string) => void, c
 
 // Solo corre al ejecutar el archivo, no al importarlo desde una prueba. Permitido con NODE_ENV=production: es la vía de TI.
 if (require.main === module) {
-  void principal(process.argv.slice(2)).then((codigo) => process.exit(codigo));
+  principal(process.argv.slice(2)).then(
+    (codigo) => process.exit(codigo),
+    () => process.exit(1),
+  );
 }

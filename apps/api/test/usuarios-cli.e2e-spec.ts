@@ -131,8 +131,15 @@ describe('administración de usuarios por línea de comandos (e2e contra Postgre
     expect(await ejecutar('desactivar', '--correo', correo('nadie'))).toBe(1);
     expect(await ejecutar('activar', '--correo', correo('nadie'))).toBe(1);
     expect(await ejecutar('restablecer-clave', '--correo', correo('nadie'))).toBe(1);
-    for (const args of [[], ['otro'], ['crear'], ['crear', '--correo', 'a@b.cl'], ['desactivar'], ['desactivar', '--nombre', 'x'], ['listar', '--correo', 'a@b.cl'], ['crear', '--correo']]) {
+    for (const args of [[], ['otro'], ['crear'], ['crear', '--correo', 'a@b.cl'], ['desactivar'], ['desactivar', '--nombre', 'x'], ['listar', '--correo', 'a@b.cl'], ['crear', '--correo'], ['crear', '--correo', '--nombre', 'x', '--rol', 'DIRECTOR_CARRERA'], ['desactivar', '--correo', '--nombre', 'x']]) {
       expect(await ejecutar(...args)).toBe(2);
     }
+  });
+
+  it('una bandera no puede quedar como valor de otra: no se crea ninguna cuenta', async () => {
+    expect(await ejecutar('crear', '--correo', '--nombre', 'Ana', '--rol', 'ASEGURAMIENTO_CALIDAD')).toBe(2);
+    expect(await ejecutar('crear', '--correo', correo('b'), '--nombre', '--rol', 'ASEGURAMIENTO_CALIDAD')).toBe(2);
+    expect(await fila('--nombre')).toBeUndefined();
+    expect(await fila(correo('b'))).toBeUndefined();
   });
 });

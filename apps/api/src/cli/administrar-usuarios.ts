@@ -1,12 +1,13 @@
 import { randomBytes } from 'node:crypto';
 import type { ContrasenasService } from '../acceso/contrasenas.service';
 import type { PrismaClient } from '../generated/prisma/client';
+import { ErrorDeUso } from './errores-cli';
 
 export const ROLES = ['DIRECTOR_SECTORIAL', 'DIRECTOR_CARRERA', 'ASEGURAMIENTO_CALIDAD'] as const;
 export type RolUsuario = (typeof ROLES)[number];
 
 /** Error de uso o de datos que se muestra tal cual al operador (código de salida 1). */
-export class ErrorUsuarios extends Error {}
+export class ErrorUsuarios extends ErrorDeUso {}
 
 export interface DatosUsuarioNuevo {
   correo: string;
