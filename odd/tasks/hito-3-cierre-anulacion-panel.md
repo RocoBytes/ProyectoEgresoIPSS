@@ -43,14 +43,14 @@ Fuera de alcance: mallas (RF-06), exportación (RF-10), catálogos reales, usuar
 ## Tareas
 
 - [x] **P1 API de cierre y anulación.** Interceptor con campo `evidencia`, validador de evidencia de cierre (PDF, JPG o PNG por contenido, HEIC con mensaje propio), cierre transaccional con limpieza del archivo, anulación con motivo, 400/403/409 y textos del historial. Ruta: delegada (escritor de la API; más de 2 archivos no triviales).
-- [ ] **P1b Sugerencias de la revisión nativa.** Cuatro hallazgos informativos (no bloqueantes):
+- [x] **P1b Sugerencias de la revisión nativa.** Cuatro hallazgos informativos (no bloqueantes):
   - que el `rm` del temporal no tape el error original;
   - prueba de carrera en la anulación;
   - pruebas de límites del interceptor de cierre (dos evidencias, campo inesperado, más de 100 MB);
   - el aviso de 100 MB de Nueva sesión que no se limpia al quitar fotos (este va en P3).
 
   Ruta: delegada (escritor de la API; P3 para la web).
-- [ ] **P2 API del panel.** Módulo `reportes` con indicadores, dona, anillos, series por mes y por año, canal, nivel, sector o carrera y últimas 5 sesiones. Ruta: delegada (mismo escritor).
+- [x] **P2 API del panel.** Módulo `reportes` con indicadores, dona, anillos, series por mes y por año, canal, nivel, sector o carrera y últimas 5 sesiones. Ruta: delegada (mismo escritor).
 - [ ] **P3 Web: cerrar y anular.** Botones en el detalle, `DialogoCerrar` y `DialogoAnular` con textos y validaciones del prototipo; la zona de archivo pasa a `comun/`. Ruta: delegada (escritor de la web).
 - [ ] **P4 Web: panel.** Filtros en la URL, indicadores, gráficos, estados vacíos, últimas sesiones y clic hacia el listado. Ruta: delegada (mismo escritor).
 - [ ] **P5 Cierre del hito.** Revisión independiente de seguridad, prueba en Compose con la semilla contra las cifras del prototipo, ADR 0016 y 0017, `CLAUDE.md`. Ruta: inline o delegada.
@@ -88,7 +88,22 @@ Fuera de alcance: mallas (RF-06), exportación (RF-10), catálogos reales, usuar
   - El historial no cambió: el detalle ya entrega `tipo` CIERRE/ANULACION y la web arma el texto.
   - Evidencia: `npm test` con 26 reglas, Jest 254 (23 suites) y Vitest 94; lint y tipos en 0. El padre volvió a correr `npm test` con el mismo resultado.
   - Revisión nativa del tramo `e9cb0d2..36bdd51` (H8, H9 y P1): riesgo medio, 816 líneas, `slice_budget_reached`. El usuario la autorizó y se aprobó con el lente de confiabilidad, sin bloqueos, y quedó reconocida. El nuevo límite revisado es `36bdd51`.
+- P1b (`18866d2`):
+  - El `rm` del temporal ya no tapa el error original.
+  - Pruebas nuevas: carreras de anulación contra anulación y contra cierre, y límites del interceptor de cierre (dos evidencias, campo `acta` inesperado y más de 100 MB).
+  - La prueba del campo inesperado destapó un defecto: Nest entrega «Unexpected file field - campo» y la traducción esperaba «Unexpected field», así que el mensaje salía en inglés, también en sesiones. Quedó corregido.
+  - Evidencia: Jest 256.
+  - Evaluación de riesgo: medio, 90 líneas, `under_budget` (pendiente en el tramo).
+- P2 (commit de esta tarea):
+  - Módulo `reportes` con `GET /api/reportes/panel` y el tipo `RespuestaPanel` en `@ipss/shared`. Son 7 consultas SQL en paralelo con parámetros enlazados (`Prisma.sql`), sin concatenar texto.
+  - `porCanal` y `porGrupo` llevan `id` para el clic hacia el listado.
+  - 7 pruebas con años 2041 a 2044 y un sector propio, incluida una de 1.000 registros en menos de 1 s.
+  - Evidencia:
+    - `npm test`: 26 reglas, Jest 264 (24 suites) y Vitest 94; lint y tipos en 0.
+    - Con la base de desarrollo sembrada y hoy = 26-11-2026 el panel coincide con el prototipo, descontando la sesión «Reunión de prueba en vivo» que quedó de la prueba en vivo del hito 2 (1 registro abierto, comité sectorial, asignatura, Tecnologías, noviembre).
+    - Con eso quedan 14 ajustes, 9 abiertos, 2 vencidos, 4 cerrados, 13 vigentes, 3 en plazo, 10 de 10 carreras y `totalAnioAnterior` 5. El 2025 da 5 cerrados, 5 en plazo y `totalAnioAnterior` nulo.
+  - Diferencia conocida con el prototipo: canales y sectores salen en orden alfabético («Otro» al final), igual que en `GET /api/catalogos`. El prototipo usa un orden fijo. Ya estaba anotado como pendiente menor.
 
 ## Próximo paso
 
-P1b y P2 (escritor de la API).
+P3 y P4 (escritor de la web).
