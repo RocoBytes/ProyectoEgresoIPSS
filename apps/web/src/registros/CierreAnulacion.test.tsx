@@ -140,6 +140,20 @@ describe('cerrar un registro', () => {
     expect(screen.queryByRole('button', { name: 'Cerrar con evidencia' })).toBeNull();
   });
 
+  it('acepta un comentario de 2.000 caracteres con espacios alrededor y la fecha igual a la de la sesión', async () => {
+    const api = cargar(detalleBase(), { [RUTA_CIERRE]: () => respuestaJson(200, { id: 'r1', correlativo: 'R-2026-001', estado: 'CERRADO' }) });
+    montar(rutas, '/registros/r1');
+    await abrirCierre();
+    // Mismo día que la sesión (02-05-2026): es el límite inferior permitido.
+    cambiar('Fecha efectiva del cambio', '2026-05-02');
+    cambiar('Comentario (opcional)', `  ${'a'.repeat(2000)}  `);
+    adjuntar(archivo('malla.pdf'));
+    enviarCierre();
+    await screen.findByText('El registro R-2026-001 quedó cerrado.');
+    const formulario = api.cuerpos[api.llamadas.indexOf(RUTA_CIERRE)] as FormData;
+    expect(JSON.parse(formulario.get('datos') as string)).toEqual({ fechaEfectiva: '2026-05-02', comentario: 'a'.repeat(2000) });
+  });
+
   it('sin comentario no manda el campo', async () => {
     const api = cargar(detalleBase(), { [RUTA_CIERRE]: () => respuestaJson(200, { id: 'r1', correlativo: 'R-2026-001', estado: 'CERRADO' }) });
     montar(rutas, '/registros/r1');
@@ -179,6 +193,16 @@ describe('cerrar un registro', () => {
     adjuntar(archivo('malla.pdf'));
     enviarCierre();
     expect(await within(dialogo).findByText('El registro R-2026-001 ya está cerrado y no admite modificaciones.')).toBeTruthy();
+  });
+
+  it('tras un 409 vuelve a pedir el detalle', async () => {
+    const api = cargar(detalleBase(), { [RUTA_CIERRE]: () => errorDeApi(409, 'Ya está cerrado.') });
+    montar(rutas, '/registros/r1');
+    await abrirCierre();
+    adjuntar(archivo('malla.pdf'));
+    enviarCierre();
+    await screen.findByText('Ya está cerrado.');
+    await waitFor(() => expect(api.llamadas.filter((l) => l === 'GET /api/registros/r1')).toHaveLength(2));
   });
 
   it('un 413 vacío (proxy) se explica como el tope de 20 MB', async () => {
@@ -261,5 +285,15 @@ describe('anular un registro', () => {
     expect(await within(dialogo).findByText('Explica el motivo con al menos 10 caracteres.')).toBeTruthy();
     enviarAnulacion();
     expect(await within(dialogo).findByText('El registro R-2026-001 ya está anulado y no admite modificaciones.')).toBeTruthy();
+  });
+
+  it('tras un 409 vuelve a pedir el detalle', async () => {
+    const api = cargar(detalleBase(), { [RUTA_ANULACION]: () => errorDeApi(409, 'Ya está anulado.') });
+    montar(rutas, '/registros/r1');
+    await abrirAnulacion();
+    cambiar('Motivo de la anulación', 'Motivo suficientemente largo');
+    enviarAnulacion();
+    await screen.findByText('Ya está anulado.');
+    await waitFor(() => expect(api.llamadas.filter((l) => l === 'GET /api/registros/r1')).toHaveLength(2));
   });
 });

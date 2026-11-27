@@ -147,7 +147,7 @@ function Contenido({ registro, alCerrar }: Omit<Props, 'abierto'>) {
         <AreaTexto
           id="m-comentario"
           error={formState.errors.comentario?.message}
-          {...register('comentario', { validate: (v) => v.length <= MAXIMO_COMENTARIO || MENSAJE_COMENTARIO })}
+          {...register('comentario', { validate: (v) => v.trim().length <= MAXIMO_COMENTARIO || MENSAJE_COMENTARIO })}
         />
       </Campo>
       <Aviso tipo="alerta">Un registro cerrado ya no se puede editar ni anular.</Aviso>

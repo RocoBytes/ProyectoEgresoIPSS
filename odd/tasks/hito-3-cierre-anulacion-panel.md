@@ -77,7 +77,7 @@ Fuera de alcance: mallas (RF-06), exportación (RF-10), catálogos reales, usuar
 
 - Rama `hito-3`, encima de `hito-2`. Un commit por tarea como mínimo.
 - Previsión: unas 2.500 líneas, en PR encadenados. La estrategia de cadena sigue pendiente del usuario y se decide antes del push. No se hace push.
-- Último límite revisado por la revisión nativa: `b31cd4f`.
+- Último límite revisado por la revisión nativa: `af20d48`.
 
 ## Progreso y evidencia
 
@@ -117,6 +117,16 @@ Fuera de alcance: mallas (RF-06), exportación (RF-10), catálogos reales, usuar
   - Nueva sesión borra el aviso de 100 MB al cambiar el acta o las fotos (sugerencia de la primera revisión).
   - El historial y la trazabilidad de cerrados y anulados ya estaban completos; no se tocaron.
   - Evidencia: `npm test` con 26 reglas, Jest 264 y Vitest 116 (22 nuevas); lint y tipos en 0. El padre volvió a correr `npm test` con el mismo resultado.
+  - Commit `af20d48`.
+  - Revisión nativa del tramo `b31cd4f..af20d48`: riesgo medio, 889 líneas. El usuario la autorizó y se aprobó sin bloqueos; quedó reconocida. El nuevo límite revisado es `af20d48`.
+  - Las 3 sugerencias van a P3b:
+    - el tope del comentario se medía sin recortar espacios;
+    - falta probar que se acepta una fecha efectiva igual a la de la sesión;
+    - falta probar que el detalle se refresca tras un 409.
+- P3b (commit de esta tarea):
+  - El tope del comentario se mide sobre el texto recortado.
+  - Pruebas nuevas: cierre con fecha efectiva igual a la de la sesión y comentario de 2.000 caracteres entre espacios, y el detalle que se vuelve a pedir tras un 409 en los dos diálogos.
+  - Evidencia: `npm test` con salida 0, 26 reglas, Jest 264 y Vitest 119; lint y tipos en 0. El padre volvió a correr Vitest de la web: 119.
 
 ## Próximo paso
 
