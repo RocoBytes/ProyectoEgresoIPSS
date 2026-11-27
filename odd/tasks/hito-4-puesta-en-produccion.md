@@ -61,7 +61,7 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
 - [x] **C1b Hallazgos de la revisión de C1.** Limpieza de temporales esperada antes de responder, prueba unitaria que la distingue y pruebas de los límites de entrada del comando de catálogos. Ruta: delegada (escritor de la API).
 - [x] **C2 Usuarios.** CLI `usuarios` (crear con alcance, desactivar, activar, restablecer clave, listar). Revoca sesiones al desactivar o restablecer y funciona con `NODE_ENV=production`. Ruta: delegada (mismo escritor).
 - [x] **C3 Respaldo y restauración.** Servicio `respaldo`, scripts para respaldar y restaurar, y prueba de restauración. Ruta: delegada (escritor de infraestructura).
-- [ ] **C4 Punta a punta.** Playwright 1.65.1, tres flujos, comando `npm run e2e` y job en CI. Ruta: delegada.
+- [x] **C4 Punta a punta.** Playwright 1.65.1, tres flujos, comando `npm run e2e` y job en CI. Ruta: delegada.
 - [ ] **C5 Entrega.** `handle_errors` en Caddy, publicación en GHCR por etiqueta, guía de instalación, README y contenido de `infra/.env.ejemplo` para el usuario. Ruta: delegada.
 
 ## Criterios de aceptación
@@ -243,7 +243,23 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
   - Si `pg_restore` falla a mitad de camino, se inyecta una sentencia que falla y `ON_ERROR_STOP` deshace la transacción entera.
   - Evidencia: `sh -n` correcto y `npm run test:respaldo` correcto (revocación, 33 descargas idénticas, respaldo dañado rechazado, atomicidad sin cambios y reintento).
   - No hay prueba de una falla de `pg_restore` a mitad del flujo: el volcado se verifica antes con `pg_restore --list`.
+  - Commit `5fbe683`.
+- C4 (commit de esta tarea):
+  - **Dónde vive.** Workspace `e2e/` en la raíz: `playwright.config.ts` y tres pruebas en `e2e/pruebas/`. El lint y los tipos de la raíz lo cubren, y no tiene script `test`. El script `scripts/e2e.mjs` levanta Compose `-p ipss-e2e` con secretos al azar, siembra, corre Playwright contra `https://localhost:<puerto>` y baja todo siempre.
+  - **Dependencia.** `@playwright/test` 1.65.1 exacta; el lockfile solo suma `@playwright/test`, `playwright` y `playwright-core` 1.65.1.
+  - **CI.** Job `e2e` después de `verificar`, con Chromium y `actions/upload-artifact` fijado por SHA (`cf430e0…`, v7.0.2). El padre confirmó con `gh api` que el SHA coincide con la etiqueta. Solo corre al hacer push.
+  - ADR 0020.
+  - **Decisiones del escritor, aceptadas:**
+    - HTTPS real con la CA interna de Caddy, porque la cookie es Secure;
+    - `workers: 1`;
+    - el flujo 2 mide el panel en el año de la sesión del registro.
+  - **Evidencia:**
+    - `npm audit --omit=dev`: 0 vulnerabilidades. `npm audit signatures`: 934 firmas verificadas.
+    - Lint y tipos en 0.
+    - `npm test`: 26 reglas, Jest 300 y Vitest 147.
+    - El padre volvió a correr `npm run e2e`: 3 de 3 en 6,5 s, con 0 contenedores y 0 volúmenes restantes.
+  - **Pendiente menor:** `puertoLibre` y la preparación de Compose están duplicados entre `scripts/e2e.mjs` y `scripts/prueba-respaldo.mjs`.
 
 ## Próximo paso
 
-C4 Playwright.
+C5 entrega.

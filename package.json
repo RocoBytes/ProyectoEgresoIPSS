@@ -5,7 +5,8 @@
   "workspaces": [
     "packages/shared",
     "apps/api",
-    "apps/web"
+    "apps/web",
+    "e2e"
   ],
   "engines": {
     "node": ">=26.13.1 <27"
@@ -20,7 +21,8 @@
     "dev": "node scripts/dev.mjs",
     "semilla": "npm run semilla -w @ipss/api",
     "catalogos": "npm run catalogos -w @ipss/api --",
-    "usuarios": "npm run usuarios -w @ipss/api --"
+    "usuarios": "npm run usuarios -w @ipss/api --",
+    "e2e": "node scripts/e2e.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
