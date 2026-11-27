@@ -173,4 +173,4 @@ TDD desactivado. Jest (`bd-pruebas`), Vitest, `npm run test:bd` y `npm run e2e`.
 
 ## Próximo paso
 
-Extras entregados en el PR #6, el 27-11-2026, el último de los 6 PR encadenados hacia `main`. Falta que el usuario cree `infra/.env.ejemplo` y que decida las brechas de clave propia y de alcance. Después se revisan y fusionan los PR en orden, del #1 al #6.
+Extras entregados en el PR #6, el 27-11-2026, el último de los 6 PR encadenados hacia `main`. `infra/.env.ejemplo` ya está en el repositorio, en el commit `22036a7` de `esqueleto`, integrado hacia arriba. Falta que el usuario decida las brechas de clave propia y de alcance. Después se revisan y fusionan los PR en orden, del #1 al #6.

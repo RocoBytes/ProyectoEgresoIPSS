@@ -152,4 +152,4 @@ Es el primer hito acordado (hasta el 29-11-2026). Además prueba tres cosas que 
 
 ## Próximo paso
 
-Entregado en el PR #1, el 27-11-2026. Falta que el usuario cree `infra/.env.ejemplo` y revise `apps/api/.env.ejemplo`.
+Entregado en el PR #1, el 27-11-2026. El usuario creó `infra/.env.ejemplo` el 27-11-2026. Quedó en el commit `22036a7` de `esqueleto` y pasó con *merge* a las cinco ramas siguientes. Falta que el usuario revise `apps/api/.env.ejemplo`.
