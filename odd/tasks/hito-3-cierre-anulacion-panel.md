@@ -42,7 +42,14 @@ Fuera de alcance: mallas (RF-06), exportación (RF-10), catálogos reales, usuar
 
 ## Tareas
 
-- [ ] **P1 API de cierre y anulación.** Interceptor con campo `evidencia`, validador de evidencia de cierre (PDF, JPG o PNG por contenido, HEIC con mensaje propio), cierre transaccional con limpieza del archivo, anulación con motivo, 400/403/409 y textos del historial. Ruta: delegada (escritor de la API; más de 2 archivos no triviales).
+- [x] **P1 API de cierre y anulación.** Interceptor con campo `evidencia`, validador de evidencia de cierre (PDF, JPG o PNG por contenido, HEIC con mensaje propio), cierre transaccional con limpieza del archivo, anulación con motivo, 400/403/409 y textos del historial. Ruta: delegada (escritor de la API; más de 2 archivos no triviales).
+- [ ] **P1b Sugerencias de la revisión nativa.** Cuatro hallazgos informativos (no bloqueantes):
+  - que el `rm` del temporal no tape el error original;
+  - prueba de carrera en la anulación;
+  - pruebas de límites del interceptor de cierre (dos evidencias, campo inesperado, más de 100 MB);
+  - el aviso de 100 MB de Nueva sesión que no se limpia al quitar fotos (este va en P3).
+
+  Ruta: delegada (escritor de la API; P3 para la web).
 - [ ] **P2 API del panel.** Módulo `reportes` con indicadores, dona, anillos, series por mes y por año, canal, nivel, sector o carrera y últimas 5 sesiones. Ruta: delegada (mismo escritor).
 - [ ] **P3 Web: cerrar y anular.** Botones en el detalle, `DialogoCerrar` y `DialogoAnular` con textos y validaciones del prototipo; la zona de archivo pasa a `comun/`. Ruta: delegada (escritor de la web).
 - [ ] **P4 Web: panel.** Filtros en la URL, indicadores, gráficos, estados vacíos, últimas sesiones y clic hacia el listado. Ruta: delegada (mismo escritor).
@@ -70,12 +77,18 @@ Fuera de alcance: mallas (RF-06), exportación (RF-10), catálogos reales, usuar
 
 - Rama `hito-3`, encima de `hito-2`. Un commit por tarea como mínimo.
 - Previsión: unas 2.500 líneas, en PR encadenados. La estrategia de cadena sigue pendiente del usuario y se decide antes del push. No se hace push.
-- Último límite revisado por la revisión nativa: `e9cb0d2` (los commits de H8 y H9 siguen en el tramo pendiente).
+- Último límite revisado por la revisión nativa: `36bdd51`.
 
 ## Progreso y evidencia
 
 - 26-11-2026: planes del hito 3, el hito 4 y los extras aprobados; rama `hito-3` creada desde `c8f0cc1`.
+- P1 (`36bdd51`):
+  - `POST /api/registros/:id/cierre` y `/anulacion`, `CierreAnulacionService`, `SubidaEvidenciaCierreInterceptor` y `validarEvidenciaCierre`.
+  - 13 pruebas nuevas en `cierre-anulacion.e2e-spec.ts`, incluida la carrera de dos cierres sin archivo huérfano.
+  - El historial no cambió: el detalle ya entrega `tipo` CIERRE/ANULACION y la web arma el texto.
+  - Evidencia: `npm test` con 26 reglas, Jest 254 (23 suites) y Vitest 94; lint y tipos en 0. El padre volvió a correr `npm test` con el mismo resultado.
+  - Revisión nativa del tramo `e9cb0d2..36bdd51` (H8, H9 y P1): riesgo medio, 816 líneas, `slice_budget_reached`. El usuario la autorizó y se aprobó con el lente de confiabilidad, sin bloqueos, y quedó reconocida. El nuevo límite revisado es `36bdd51`.
 
 ## Próximo paso
 
-P1 API de cierre y anulación.
+P1b y P2 (escritor de la API).

@@ -1,4 +1,5 @@
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { DetalleRegistro, RespuestaCambioEstado } from '@ipss/shared';
@@ -175,6 +176,52 @@ describe('POST /api/registros/:id/cierre y /anulacion', () => {
       const evidencias = await conMigrador((c) => c.query('SELECT id FROM evidencia WHERE id = (SELECT evidencia_cierre_id FROM registro WHERE id = $1)', [id]));
       expect(evidencias.rowCount).toBe(1);
     });
+
+    it('rechaza dos archivos en `evidencia`, un campo de archivo ajeno y un envío de más de 100 MB', async () => {
+      const id = await nuevoRegistro();
+      const antes = await archivosEn();
+      const cabeceras = { cookie: Object.entries(cSec).map(([n, v]) => `${n}=${v}`).join('; '), 'x-forwarded-for': '10.8.1.1' };
+      const formulario = (campos: string[]): FormData => {
+        const f = new FormData();
+        f.append('datos', JSON.stringify({ fechaEfectiva: hoy }));
+        for (const campo of campos) f.append(campo, new Blob([new Uint8Array(PDF)], { type: 'application/pdf' }), 'a.pdf');
+        return f;
+      };
+      const enviar = async (campos: string[]) => {
+        const r = await fetch(`${ap.url}/api/registros/${id}/cierre`, { method: 'POST', headers: cabeceras, body: formulario(campos) });
+        return { estado: r.status, cuerpo: (await r.json()) as Errores };
+      };
+      const dos = await enviar(['evidencia', 'evidencia']);
+      expect(dos.estado).toBe(400);
+      expect(dos.cuerpo.message).toBe('Adjunta una sola evidencia.');
+      const ajeno = await enviar(['acta']);
+      expect(ajeno.estado).toBe(400);
+      expect(ajeno.cuerpo.message).toBe('La solicitud trae un archivo que no corresponde.');
+
+      // fetch no deja falsear Content-Length: se usa node:http y no se envía ningún byte del cuerpo.
+      const grande = await new Promise<{ estado: number; cuerpo: string }>((resolver, rechazar) => {
+        const peticion = request(
+          `${ap.url}/api/registros/${id}/cierre`,
+          { method: 'POST', headers: { ...cabeceras, 'content-type': 'multipart/form-data; boundary=limite', 'content-length': '100000001' } },
+          (respuesta) => {
+            const partes: Buffer[] = [];
+            respuesta.on('data', (parte: Buffer) => partes.push(parte));
+            respuesta.on('end', () => {
+              resolver({ estado: respuesta.statusCode ?? 0, cuerpo: Buffer.concat(partes).toString('utf8') });
+              peticion.destroy();
+            });
+          },
+        );
+        peticion.on('error', rechazar);
+        peticion.flushHeaders();
+      });
+      expect(grande.estado).toBe(413);
+      expect((JSON.parse(grande.cuerpo) as { message: string }).message).toBe('El envío supera los 100 MB en total. Adjunta menos fotos o reduce su tamaño.');
+
+      expect((await fila(id))?.estado).toBe('ABIERTO');
+      expect(await archivosEn()).toEqual(antes);
+      expect(await readdir(join(dir, '.entrantes'))).toEqual([]);
+    });
   });
 
   describe('anulación', () => {
@@ -214,6 +261,23 @@ describe('POST /api/registros/:id/cierre y /anulacion', () => {
       const anulado = await nuevoRegistro();
       await anular(anulado, { motivo: 'Motivo suficientemente largo' });
       expect((await anular(anulado, { motivo: 'Motivo suficientemente largo' })).estado).toBe(409);
+    });
+
+    it('con dos anulaciones simultáneas, o una anulación y un cierre, gana una y la otra recibe 409', async () => {
+      const motivo = { motivo: 'Motivo suficientemente largo' };
+      const doble = await nuevoRegistro();
+      const [a, b] = await Promise.all([anular(doble, motivo), anular(doble, motivo, cCar)]);
+      expect([a.estado, b.estado].sort()).toEqual([200, 409]);
+      expect((await fila(doble))?.estado).toBe('ANULADO');
+
+      const mixto = await nuevoRegistro();
+      const antes = await archivosEn();
+      const [x, y] = await Promise.all([anular(mixto, motivo), cerrar(mixto, { fechaEfectiva: hoy })]);
+      expect([x.estado, y.estado].sort()).toEqual([200, 409]);
+      // Si ganó la anulación el cierre perdedor no deja archivo; si ganó el cierre, queda exactamente el suyo.
+      const ganoCierre = y.estado === 200;
+      expect((await fila(mixto))?.estado).toBe(ganoCierre ? 'CERRADO' : 'ANULADO');
+      expect((await archivosEn()).length).toBe(antes.length + (ganoCierre ? 1 : 0));
     });
   });
 });

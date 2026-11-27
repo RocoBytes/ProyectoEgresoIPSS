@@ -75,7 +75,9 @@ export function traducir(error: unknown, mensajes: Readonly<Record<string, strin
   if (error instanceof BadRequestException) {
     const cuerpo = error.getResponse();
     const mensaje = typeof cuerpo === 'object' && 'message' in cuerpo ? cuerpo.message : cuerpo;
-    const traducido = typeof mensaje === 'string' ? mensajes[mensaje] : undefined;
+    // Nest entrega el campo ajeno como «Unexpected file field - <campo>», no como el «Unexpected field» de Multer.
+    const clave = typeof mensaje === 'string' && mensaje.startsWith('Unexpected file field') ? 'Unexpected field' : mensaje;
+    const traducido = typeof clave === 'string' ? mensajes[clave] : undefined;
     if (traducido !== undefined) return new BadRequestException({ statusCode: 400, message: traducido });
   }
   return error;

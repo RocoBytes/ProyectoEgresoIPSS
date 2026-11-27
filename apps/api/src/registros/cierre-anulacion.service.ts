@@ -80,7 +80,8 @@ export class CierreAnulacionService {
       if (incorporada !== undefined) await this.almacenamiento.borrar(incorporada).catch(() => undefined);
       throw error;
     } finally {
-      if (archivo !== undefined) await rm(archivo.path, { force: true });
+      // Un fallo al limpiar el temporal no debe reemplazar la respuesta original (200, 400, 403 o 409).
+      if (archivo !== undefined) await rm(archivo.path, { force: true }).catch(() => undefined);
     }
   }
 
