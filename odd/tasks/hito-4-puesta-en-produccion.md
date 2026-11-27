@@ -76,7 +76,7 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
 
 - Rama `hito-4`, encima de `hito-3`. Un commit por tarea como mínimo.
 - Previsión: unas 2.000 líneas, en PR encadenados. La estrategia de cadena sigue pendiente del usuario y se decide antes del push. No se hace push.
-- Límite revisado por la revisión nativa: `26a621b`.
+- Límite revisado por la revisión nativa: `b69c926`.
 
 ## Progreso y evidencia
 
@@ -295,6 +295,25 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
     - Se exige código 1, que las filas sigan en 1000 → 1000 y que haya 0 filas con SQL inyectado.
   - **Discrimina.** El escritor quitó a propósito el `\.` y la escena falló («antes 1000, después 2821»); luego devolvió `restaurar.sh` a su versión, que quedó sin cambios.
   - **Evidencia.** El padre volvió a correr `npm run test:respaldo` con resultado correcto: «corte al 99 %; código 1, filas 1000 -> 1000, filas con SQL inyectado: 0». Lint en 0.
+  - Commit `b69c926`.
+  - **Revisión nativa** de `26a621b..b69c926` (C4c y C3f): riesgo alto, 137 líneas, 4 lentes, autorizada por la instrucción del usuario. Se aprobó y quedó reconocida. El límite revisado pasa a `b69c926`.
+  - **Advertencias sobre la limpieza de la escena de una columna cuando falla.** Quedan acotadas porque el `finally` de la prueba baja todo el proyecto con sus volúmenes. El padre igual ajustó la escena, en el commit de cierre:
+    - borra `/tmp/vacio` antes de crearlo;
+    - un comentario indica de dónde salen las marcas del SQL inyectado.
+- **Cierre del hito 4 (commit de cierre):**
+  - `npm run test:respaldo` correcto.
+  - Lint y tipos en 0.
+  - `npm test`: 26 reglas, Jest 300 (28 suites) y Vitest 149.
+  - `npm run e2e` 3 de 3, en la corrida de C4c.
+- **Para el usuario:**
+  - **Contenido de `infra/.env.ejemplo`:** el agente no puede escribir `.env*`, así que el usuario tiene que crear el archivo.
+  - **Brechas:** no hay pantalla para cambiar la clave propia, y un alcance mal cargado no se puede corregir sin DELETE sobre `usuario_sector` y `usuario_carrera`.
+  - **Pendientes:**
+    - estrategia de PR encadenados y push;
+    - el job `publicar` solo se prueba en GitHub;
+    - el paquete de GHCR hay que hacerlo público o dar acceso;
+    - `puertoLibre` está duplicado entre los dos scripts de prueba;
+    - imágenes en caché de las pruebas.
 - [x] C4b (commit de esta tarea):
   - **Señales.** `scripts/e2e.mjs` pasa de `spawnSync` a `spawn`, para poder atender las señales. SIGINT y SIGTERM detienen el proceso hijo y bajan el proyecto con sus volúmenes, una sola vez gracias a una promesa compartida, y salen con 130 o 143.
   - **Fila del flujo 2.** El registro sale del JSON de la respuesta ya filtrada y la prueba espera el `href` exacto en la primera fila.
@@ -335,4 +354,4 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
 
 ## Próximo paso
 
-C5 entrega.
+Hito 4 cerrado. Siguen los extras aprobados: E1 mallas (RF-06) y E2 exportación a Excel (RF-10).

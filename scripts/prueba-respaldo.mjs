@@ -375,7 +375,7 @@ rollback;
     set -eu
     export PGDATABASE=${bdMono}
     psql -q -c "create table copia as select md5(g::text) || md5(g::text) as m from generate_series(1, 3000) g"
-    rm -rf /respaldos/${mono}; mkdir /respaldos/${mono} /tmp/vacio
+    rm -rf /respaldos/${mono} /tmp/vacio; mkdir /respaldos/${mono} /tmp/vacio
     pg_dump --format=custom --file=/respaldos/${mono}/origen.dump
     tar -C /tmp/vacio -cf /respaldos/${mono}/evidencias.tar .
     psql -q -c "delete from copia where m not in (select m from copia limit 1000)"
@@ -388,6 +388,8 @@ rollback;
   if (filasAntes !== '1000') throw new Error(`La tabla de una columna debía tener 1000 filas y tiene ${filasAntes}`);
   const monoFalla = compose(['--profile', 'restauracion', 'run', '--rm', '--no-TTY', '-e', `PGDATABASE=${bdMono}`, 'restaurar', mono], { permitirFallo: true });
   const filasDespues = psqlMono('select count(*) from copia');
+  // Las marcas son textos que restaurar.sh inyecta tras una falla de pg_restore (`\echo pg_restore falló…`, la
+  // sentencia error_de_restauracion_abortar() y el bloque que imprime REVOCADOS). Si cambian allí, cambiar aquí.
   const basura = psqlMono("select count(*) from copia where m like '%error_de_restauracion_abortar%' or m like '%REVOCADOS%' or m like '%pg_restore falló%'");
   compose(['exec', '-T', 'bd', 'psql', '-U', 'postgres', '-d', 'postgres', '-c', `drop database ${bdMono}`]);
   enRespaldo(`rm -rf /respaldos/${mono} /tmp/vacio`);
