@@ -1,4 +1,4 @@
-# Validado con `caddy validate` en caddy 2.11.9 el 2026-11-26.
+# Validado con `caddy validate` en caddy 2.11.9 el 2026-11-27.
 {
 	servers {
 		# Sin esto Caddy descarta el X-Forwarded-For entrante y la API ve la IP de Cloudflare, no la del usuario.
@@ -27,5 +27,30 @@
 	header {
 		-Server
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
+
+	# Errores que genera Caddy mismo (413 por el tope de arriba, 502 o 503 si la API o la web no responden, etc.).
+	# `header -Server` del bloque anterior no los alcanza: las rutas de error van aparte, así que se repite aquí.
+	# Lo que responden la API y la web no pasa por este bloque y llega tal cual.
+	handle_errors {
+		header -Server
+
+		# Mismo cuerpo que devuelve la API (subida-evidencias.interceptor.ts): la web ya sabe mostrar su `message`.
+		@envio_grande expression {err.status_code} == 413
+		handle @envio_grande {
+			header Content-Type application/json
+			respond `{"statusCode":413,"message":"El envío supera los 100 MB en total. Adjunta menos fotos o reduce su tamaño."}` 413
+		}
+
+		@servicio_caido expression {err.status_code} >= 500
+		handle @servicio_caido {
+			header Content-Type application/json
+			respond `{"statusCode":{err.status_code},"message":"El servicio no está disponible por ahora. Inténtalo de nuevo en unos minutos."}` {err.status_code}
+		}
+
+		handle {
+			header Content-Type application/json
+			respond `{"statusCode":{err.status_code},"message":"No se pudo procesar la solicitud."}` {err.status_code}
+		}
 	}
 }

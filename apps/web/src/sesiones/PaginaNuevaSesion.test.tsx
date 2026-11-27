@@ -250,6 +250,16 @@ describe('PaginaNuevaSesion', () => {
     expect(screen.queryAllByText(AVISO_100_MB)).toHaveLength(0);
   });
 
+  it('un 413 con el JSON del proxy muestra el mismo mensaje del envío demasiado grande', async () => {
+    preparar(soloInformatica, {
+      'POST /api/sesiones': () =>
+        respuestaJson(413, { statusCode: 413, message: 'El envío supera los 100 MB en total. Adjunta menos fotos o reduce su tamaño.' }),
+    });
+    await llenarValido();
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirmar y guardar' }));
+    expect(await screen.findByText('El envío supera los 100 MB en total. Adjunta menos fotos o reduce su tamaño.')).toBeTruthy();
+  });
+
   it('un 413 sin cuerpo (proxy) muestra el mismo mensaje del envío demasiado grande', async () => {
     preparar(soloInformatica, { 'POST /api/sesiones': () => new Response(null, { status: 413 }) });
     await llenarValido();

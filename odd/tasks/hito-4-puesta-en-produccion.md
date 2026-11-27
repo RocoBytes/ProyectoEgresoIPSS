@@ -62,7 +62,7 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
 - [x] **C2 Usuarios.** CLI `usuarios` (crear con alcance, desactivar, activar, restablecer clave, listar). Revoca sesiones al desactivar o restablecer y funciona con `NODE_ENV=production`. Ruta: delegada (mismo escritor).
 - [x] **C3 Respaldo y restauración.** Servicio `respaldo`, scripts para respaldar y restaurar, y prueba de restauración. Ruta: delegada (escritor de infraestructura).
 - [x] **C4 Punta a punta.** Playwright 1.65.1, tres flujos, comando `npm run e2e` y job en CI. Ruta: delegada.
-- [ ] **C5 Entrega.** `handle_errors` en Caddy, publicación en GHCR por etiqueta, guía de instalación, README y contenido de `infra/.env.ejemplo` para el usuario. Ruta: delegada.
+- [x] **C5 Entrega.** `handle_errors` en Caddy, publicación en GHCR por etiqueta, guía de instalación, README y contenido de `infra/.env.ejemplo` para el usuario. Ruta: delegada.
 
 ## Criterios de aceptación
 
@@ -275,6 +275,34 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
     - `npm run e2e`: 3 de 3, sin contenedores ni volúmenes restantes. El padre lo volvió a correr: 3 de 3.
     - Un SIGINT a los 25 s salió con 130 y dejó 0 contenedores y 0 volúmenes.
     - No se probaron SIGTERM, que usa el mismo código, ni la impresión de logs.
+  - Commit `a97369c`.
+- C5 (commit de esta tarea):
+  - **Caddy.** `handle_errors` quita `Server` y responde JSON:
+    - el 413 con el mismo cuerpo que la API;
+    - los 5xx con «El servicio no está disponible por ahora…»;
+    - el resto con un mensaje genérico.
+
+    Lo que responden la API y la web no pasa por ahí.
+  - **Web.** Cerrar y anular explican cualquier 413 con el tope de 20 MB, porque el 413 de Caddy ahora trae el mensaje de 100 MB, que es de sesiones. Hay una prueba en cada pantalla.
+  - **Publicación.** Job `publicar` en CI, solo con etiquetas `v*` y después de `verificar`, `imagenes` y `e2e`. Usa `packages: write` y publica `ipss-api` e `ipss-web` con procedencia y SBOM. Las acciones van fijadas por SHA, y el padre confirmó con `gh api` que los 3 SHA son los commits de sus etiquetas.
+  - **Documentos.**
+    - `docs/instalacion.md`: requisitos, variables, puesta en marcha, catálogos, usuarios, respaldos, actualización y logs.
+    - `README.md`.
+    - ADR 0021 (errores del proxy y publicación).
+    - En `CLAUDE.md`, 4 comandos nuevos.
+    - El padre cambió en la guía el dominio de ejemplo `perfil.ipss.cl` por `plataforma.instituto.example`, por la regla de no usar datos reales del IPSS.
+  - **Contenido de `infra/.env.ejemplo`:** queda para que el usuario cree el archivo; el agente no puede escribir `.env*`.
+  - **Evidencia:**
+    - `caddy validate` correcto.
+    - En el proyecto `ipss-c5`:
+      - un `Content-Length` de 100000001 da 413 JSON sin `Server`;
+      - `/api/salud` y la página principal dan 200;
+      - con la API detenida, la respuesta es 502 JSON sin `Server`;
+      - los comandos de catálogos y usuarios funcionan tal como están en la guía.
+    - El YAML de CI se puede leer.
+    - Lint y tipos en 0. `npm test`: 26 reglas, Jest 300 y Vitest 149 (el padre volvió a correr Vitest: 149).
+    - `npm run e2e`: 3 de 3.
+    - El job `publicar` solo se puede probar en GitHub.
 
 ## Próximo paso
 

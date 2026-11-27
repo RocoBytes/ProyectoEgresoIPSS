@@ -214,6 +214,17 @@ describe('cerrar un registro', () => {
     expect(await within(dialogo).findByText('El archivo pesa más de 20 MB. Reduce el archivo o divídelo.')).toBeTruthy();
   });
 
+  it('un 413 con el JSON del proxy también se explica como el tope de 20 MB, no como el del envío de sesión', async () => {
+    cargar(detalleBase(), {
+      [RUTA_CIERRE]: () => errorDeApi(413, 'El envío supera los 100 MB en total. Adjunta menos fotos o reduce su tamaño.'),
+    });
+    montar(rutas, '/registros/r1');
+    const dialogo = await abrirCierre();
+    adjuntar(archivo('malla.pdf'));
+    enviarCierre();
+    expect(await within(dialogo).findByText('El archivo pesa más de 20 MB. Reduce el archivo o divídelo.')).toBeTruthy();
+  });
+
   it('Quitar devuelve la zona para elegir otro archivo', async () => {
     cargar(detalleBase());
     montar(rutas, '/registros/r1');

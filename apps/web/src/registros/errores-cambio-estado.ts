@@ -19,7 +19,8 @@ export function traducirErrorCambioEstado(error: unknown): ErrorTraducido {
     for (const { campo, mensaje } of cuerpo.errores) campos[campo] = mensaje;
     return { campos, general: null };
   }
-  // Un proxy (Caddy) corta por tamaño sin cuerpo: se explica igual que la API.
-  if (error.estado === 413 && cuerpo === undefined) return { campos: {}, general: MENSAJE_ARCHIVO_GRANDE };
+  // Caddy corta por tamaño con su propio JSON (el del envío completo de una sesión) o sin cuerpo; aquí hay un solo archivo,
+  // así que el 413 siempre se explica con el tope por archivo, sea quien sea el que lo emitió.
+  if (error.estado === 413) return { campos: {}, general: MENSAJE_ARCHIVO_GRANDE };
   return { campos: {}, general: error.message };
 }
