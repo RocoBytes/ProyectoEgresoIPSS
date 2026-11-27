@@ -40,3 +40,9 @@ export function partesTexto(c: ConteoPorEstado): string {
 }
 
 export const textoAjustes = (n: number): string => plural(n, 'ajuste', 'ajustes');
+
+/** Índice del primer mes con el máximo de ajustes; -1 si no hay ninguno (no se rotula un cero). */
+export function indiceMaximo(totales: number[]): number {
+  const maximo = Math.max(0, ...totales);
+  return maximo === 0 ? -1 : totales.indexOf(maximo);
+}

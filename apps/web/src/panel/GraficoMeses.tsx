@@ -1,6 +1,6 @@
-import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, LabelList, Tooltip, XAxis, YAxis } from 'recharts';
 import type { PanelMes } from '@ipss/shared';
-import { COLORES, ejeY, MESES, partesTexto, textoAjustes } from './calculos';
+import { COLORES, ejeY, indiceMaximo, MESES, partesTexto, textoAjustes } from './calculos';
 
 interface Props {
   anio: number;
@@ -15,6 +15,13 @@ export function textoMes(m: PanelMes, anio: number, ultimoMes: number): string {
   const nombre = `${MESES[m.mes - 1] ?? ''} ${String(anio)}`;
   if (m.mes > ultimoMes) return `${nombre}: aún no llega`;
   return `${nombre}: ${textoAjustes(m.total)}${m.total > 0 ? ` (${partesTexto(m)})` : ''}`;
+}
+
+interface LabelProps {
+  x?: number | string;
+  y?: number | string;
+  width?: number | string;
+  value?: unknown;
 }
 
 interface PropsTick {
@@ -33,7 +40,9 @@ function TooltipMes({ activo, mes, anio, ultimoMes }: { activo: boolean; mes: Pa
  * información está en la tabla oculta de debajo, que sí leen los lectores de pantalla.
  */
 export function GraficoMeses({ anio, porMes, ultimoMes, donde }: Props) {
-  const { ticks, tope } = ejeY(Math.max(1, ...porMes.map((m) => m.total)));
+  const totales = porMes.map((m) => m.total);
+  const { ticks, tope } = ejeY(Math.max(1, ...totales));
+  const mesMaximo = indiceMaximo(totales);
   return (
     <div>
       <div aria-hidden="true">
@@ -42,7 +51,7 @@ export function GraficoMeses({ anio, porMes, ultimoMes, donde }: Props) {
           accessibilityLayer={false}
           data={porMes}
           style={{ width: '100%', height: 256 }}
-          margin={{ top: 8, right: 4, bottom: 0, left: -16 }}
+          margin={{ top: 24, right: 4, bottom: 0, left: -16 }}
         >
           <CartesianGrid vertical={false} stroke="#e4dfd8" />
           <XAxis
@@ -66,6 +75,24 @@ export function GraficoMeses({ anio, porMes, ultimoMes, donde }: Props) {
           <Bar dataKey="cerrados" stackId="m" fill={COLORES.cerrados} maxBarSize={22} isAnimationActive={false} />
           <Bar dataKey="abiertos" stackId="m" fill={COLORES.abiertos} maxBarSize={22} isAnimationActive={false} />
           <Bar dataKey="anulados" stackId="m" fill={COLORES.anulados} maxBarSize={22} radius={[4, 4, 0, 0]} isAnimationActive={false} />
+          {/*
+            Barra invisible con el total del mes, sobre su propio eje X oculto para no desplazar la pila. Su cima es siempre la cima
+            de la columna: la última barra de la pila mide cero cuando el mes no tiene anulados y ahí no hay dónde colgar la cifra.
+          */}
+          <XAxis xAxisId="rotulo" dataKey="mes" hide />
+          <Bar xAxisId="rotulo" dataKey="total" fill="transparent" maxBarSize={22} isAnimationActive={false} legendType="none" tooltipType="none">
+            {/* Recharts omite las barras de altura cero al numerar, así que el mes se identifica por su dato y no por el índice. */}
+            <LabelList
+              dataKey={(fila: PanelMes) => (fila.mes === mesMaximo + 1 ? fila.total : null)}
+              content={({ x, y, width, value }: LabelProps) =>
+                typeof value !== 'number' ? null : (
+                  <text x={Number(x) + Number(width) / 2} y={Number(y) - 5} textAnchor="middle" fontSize={12} fontWeight={700} fill="#102b42">
+                    {value}
+                  </text>
+                )
+              }
+            />
+          </Bar>
         </BarChart>
       </div>
       <table className="sr-only">

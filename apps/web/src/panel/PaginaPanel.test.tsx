@@ -94,14 +94,18 @@ const rutas = [
   { path: '/registros/:id', element: <p>Detalle</p> },
 ];
 
-function preparar(entrada: string, paneles: Record<string, RespuestaPanel>) {
+type RespuestaSimulada = RespuestaPanel | (() => Response | Promise<Response>);
+
+function preparar(entrada: string, paneles: Record<string, RespuestaSimulada>) {
   const api = simularApi({
     'GET /api/catalogos': () => respuestaJson(200, catalogos),
-    ...Object.fromEntries(Object.entries(paneles).map(([ruta, cuerpo]) => [`GET /api/reportes/panel${ruta}`, () => respuestaJson(200, cuerpo)])),
+    ...Object.fromEntries(
+      Object.entries(paneles).map(([ruta, cuerpo]) => [`GET /api/reportes/panel${ruta}`, typeof cuerpo === 'function' ? cuerpo : () => respuestaJson(200, cuerpo)]),
+    ),
   });
-  const { enrutador } = montar(rutas, entrada);
+  const { enrutador, cliente } = montar(rutas, entrada);
   const destino = () => `${enrutador.state.location.pathname}${enrutador.state.location.search}`;
-  return { api, destino };
+  return { api, destino, cliente };
 }
 
 describe('PaginaPanel', () => {
@@ -251,5 +255,87 @@ describe('PaginaPanel', () => {
     const { destino } = preparar('/?sector=s1', { '?sectorId=s1': panelSector });
     fireEvent.click(await screen.findByRole('button', { name: 'Ver estos ajustes en el listado' }));
     expect(destino()).toBe('/registros?anio=2026&sector=s1');
+  });
+
+  it('el indicador de cerrados filtra por estado y el total lleva solo el año y los filtros del panel', async () => {
+    const primero = preparar('/', { '': panel2026 });
+    fireEvent.click(await screen.findByRole('button', { name: /Ajustes cerrados con evidencia/ }));
+    expect(primero.destino()).toBe('/registros?anio=2026&estado=CERRADO');
+    cleanup();
+    const segundo = preparar('/?sector=s1', { '?sectorId=s1': panelSector });
+    fireEvent.click(await screen.findByRole('button', { name: /Ajustes registrados en 2026/ }));
+    expect(segundo.destino()).toBe('/registros?anio=2026&sector=s1');
+  });
+
+  it('mientras llegan los datos del filtro nuevo, lo mostrado y sus enlaces siguen siendo los del filtro anterior', async () => {
+    let liberar: (r: Response) => void = () => undefined;
+    const { destino } = preparar('/', {
+      '': panel2026,
+      '?sectorId=s1': () =>
+        new Promise<Response>((resolver) => {
+          liberar = resolver;
+        }),
+    });
+    await screen.findByRole('option', { name: 'Tecnologías' });
+    fireEvent.change(screen.getByLabelText('Sector'), { target: { value: 's1' } });
+    // La URL ya cambió, pero las filas siguen siendo de sectores: el título y la clave del clic también.
+    await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).not.toBeNull());
+    expect(screen.getByRole('heading', { name: 'Ajustes por sector' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Ajustes por carrera' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Salud/ }));
+    expect(destino()).toBe('/registros?anio=2026&sector=s2');
+    cleanup();
+    liberar(respuestaJson(200, panelSector));
+  });
+
+  it('al llegar los datos nuevos se quita el estado de carga y los clics usan el filtro nuevo', async () => {
+    let liberar: (r: Response) => void = () => undefined;
+    const { destino } = preparar('/', {
+      '': panel2026,
+      '?sectorId=s1': () =>
+        new Promise<Response>((resolver) => {
+          liberar = resolver;
+        }),
+    });
+    await screen.findByRole('option', { name: 'Tecnologías' });
+    fireEvent.change(screen.getByLabelText('Sector'), { target: { value: 's1' } });
+    await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).not.toBeNull());
+    liberar(respuestaJson(200, panelSector));
+    expect(await screen.findByRole('heading', { name: 'Ajustes por carrera' })).toBeTruthy();
+    expect(document.querySelector('[aria-busy="true"]')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Informática/ }));
+    expect(destino()).toBe('/registros?anio=2026&sector=s1&carrera=c1');
+  });
+
+  it('si falla la consulta del filtro nuevo avisa, deja los filtros a mano y permite reintentar', async () => {
+    let falla = true;
+    preparar('/', {
+      '': panel2026,
+      '?sectorId=s1': () => (falla ? respuestaJson(500, { statusCode: 500, message: 'Error' }) : respuestaJson(200, panelSector)),
+    });
+    await screen.findByRole('option', { name: 'Tecnologías' });
+    fireEvent.change(screen.getByLabelText('Sector'), { target: { value: 's1' } });
+    expect((await screen.findByRole('alert')).textContent).toContain('No se pudo cargar el panel. Inténtalo de nuevo.');
+    // Los filtros siguen ahí para corregir la elección.
+    expect(screen.getByLabelText('Sector')).toBeTruthy();
+    falla = false;
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+    expect(await screen.findByRole('heading', { name: 'Ajustes por carrera' })).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('si falla una recarga se avisa y se conservan los datos anteriores', async () => {
+    let llamadas = 0;
+    const { cliente } = preparar('/', {
+      '': () => {
+        llamadas += 1;
+        return llamadas === 1 ? respuestaJson(200, panel2026) : respuestaJson(500, { statusCode: 500, message: 'Error' });
+      },
+    });
+    await screen.findByRole('button', { name: /Ajustes registrados en 2026/ });
+    await cliente.invalidateQueries({ queryKey: ['reportes'] });
+    expect((await screen.findByRole('alert')).textContent).toContain('No se pudo cargar el panel');
+    expect(screen.getByRole('button', { name: /Ajustes registrados en 2026/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Reintentar' })).toBeTruthy();
   });
 });

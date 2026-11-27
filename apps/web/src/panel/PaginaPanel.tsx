@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import type { RespuestaPanel } from '@ipss/shared';
@@ -149,7 +149,9 @@ function Contenido({ datos, sector, carrera, nombreSector, nombreCarrera, alCamb
     detalle: `${g.nombre}: ${textoAjustes(g.total)} (${partesTexto(g)}). Clic para verlos en el listado.`,
     segmentos: ESTADOS_PANEL.map((e) => ({ color: COLORES[e.clave], valor: g[e.clave] })),
   }));
-  const claveGrupo = sector !== '' ? 'carrera' : 'sector';
+  // El tipo de las filas manda: describe los datos mostrados, no el filtro que el usuario acaba de elegir.
+  const porCarrera = (datos.porGrupo[0]?.tipo ?? (sector !== '' ? 'CARRERA' : 'SECTOR')) === 'CARRERA';
+  const claveGrupo = porCarrera ? 'carrera' : 'sector';
 
   return (
     <>
@@ -315,7 +317,7 @@ function Contenido({ datos, sector, carrera, nombreSector, nombreCarrera, alCamb
         </Tarjeta>
         <Tarjeta>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-base font-bold text-navy">{sector !== '' ? 'Ajustes por carrera' : 'Ajustes por sector'}</h2>
+            <h2 className="text-base font-bold text-navy">{porCarrera ? 'Ajustes por carrera' : 'Ajustes por sector'}</h2>
             <Leyenda />
           </div>
           <BarrasClicables
@@ -372,6 +374,13 @@ function Contenido({ datos, sector, carrera, nombreSector, nombreCarrera, alCamb
   );
 }
 
+/** Los datos viajan con los filtros a los que pertenecen: con `keepPreviousData` la URL ya puede ir adelante. */
+interface DatosPanel {
+  datos: RespuestaPanel;
+  sector: string;
+  carrera: string;
+}
+
 export function PaginaPanel() {
   const [parametros, setParametros] = useSearchParams();
   const catalogos = useQuery({ queryKey: ['catalogos'], queryFn: obtenerCatalogos });
@@ -381,7 +390,11 @@ export function PaginaPanel() {
   const sector = parametros.get('sector') ?? catalogos.data?.carreras.find((c) => c.id === carrera)?.sectorId ?? '';
   const consulta = useQuery({
     queryKey: ['reportes', 'panel', anioUrl, sector, carrera],
-    queryFn: () => obtenerPanel({ anio: anioUrl, sectorId: sector, carreraId: carrera }),
+    queryFn: async (): Promise<DatosPanel> => ({
+      datos: await obtenerPanel({ anio: anioUrl, sectorId: sector, carreraId: carrera }),
+      sector,
+      carrera,
+    }),
     placeholderData: keepPreviousData,
   });
 
@@ -396,13 +409,18 @@ export function PaginaPanel() {
 
   const sectores = catalogos.data?.sectores ?? [];
   const carreras = catalogos.data?.carreras ?? [];
-  const nombreSector = sectores.find((s) => s.id === sector)?.nombre ?? '';
-  const nombreCarrera = carreras.find((c) => c.id === carrera)?.nombre ?? '';
-  const datos = consulta.data;
+  const nombreDe = (lista: Array<{ id: string; nombre: string }>, id: string) => lista.find((x) => x.id === id)?.nombre ?? '';
+  const mostrado = consulta.data;
+  const datos = mostrado?.datos;
+  // Mientras llegan los datos nuevos se ve lo anterior atenuado y sin clics, para que ningún enlace mezcle filtros nuevos con filas viejas.
+  const cargando = consulta.isPlaceholderData;
   const anioActivo = anioUrl !== '' ? Number(anioUrl) : datos?.anio;
+  // Si la consulta falla no hay datos que den los años: se recuerdan los últimos vistos para que el filtro siga usable.
+  const [aniosVistos, setAniosVistos] = useState<number[]>([]);
+  if (datos !== undefined && datos.aniosDisponibles !== aniosVistos) setAniosVistos(datos.aniosDisponibles);
   const chips: Array<{ clave: string; texto: string; quitar: Record<string, string> }> = [
-    ...(sector !== '' ? [{ clave: 'sector', texto: nombreSector, quitar: { sector: '', carrera: '' } }] : []),
-    ...(carrera !== '' ? [{ clave: 'carrera', texto: nombreCarrera, quitar: { carrera: '' } }] : []),
+    ...(sector !== '' ? [{ clave: 'sector', texto: nombreDe(sectores, sector), quitar: { sector: '', carrera: '' } }] : []),
+    ...(carrera !== '' ? [{ clave: 'carrera', texto: nombreDe(carreras, carrera), quitar: { carrera: '' } }] : []),
   ];
 
   return (
@@ -413,121 +431,137 @@ export function PaginaPanel() {
         </h1>
         <p className="text-texto-2">Ajustes curriculares registrados a partir de la retroalimentación, según la fecha de cada sesión.</p>
       </div>
-      {datos === undefined ? (
-        consulta.isError ? (
+      {mostrado === undefined && !consulta.isError && (
+        <p role="status" className="text-texto-2">
+          Cargando
+        </p>
+      )}
+      {(mostrado !== undefined || consulta.isError) && (
+        <Tarjeta aria-label="Filtros del panel">
+          <div className="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1.4fr)_auto] items-end gap-x-4 gap-y-3 max-[1100px]:grid-cols-2">
+            <div className="grid content-start gap-1.5">
+              <span id="p-anio-etq" className="text-[13px] font-semibold text-navy">
+                Año
+              </span>
+              <div role="group" aria-labelledby="p-anio-etq" className="inline-flex min-h-10 gap-0.5 rounded-s bg-neutro-fondo p-[3px]">
+                {aniosVistos.map((a) => (
+                  <button
+                    key={a}
+                    type="button"
+                    aria-pressed={a === anioActivo}
+                    onClick={() => {
+                      cambiar({ anio: String(a) });
+                    }}
+                    className={cn(
+                      'cursor-pointer rounded-xs px-4 py-1.5 text-[13px] font-semibold',
+                      a === anioActivo ? 'bg-superficie text-navy shadow-sombra-1' : 'text-texto-2 hover:text-navy',
+                    )}
+                  >
+                    {a}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <Campo id="p-sector" etiqueta="Sector">
+              <Selector
+                id="p-sector"
+                value={sector}
+                onChange={(e) => {
+                  cambiar({ sector: e.target.value, carrera: '' });
+                }}
+              >
+                <option value="">Todos los sectores</option>
+                {sectores.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.nombre}
+                  </option>
+                ))}
+              </Selector>
+            </Campo>
+            <Campo id="p-carrera" etiqueta="Carrera">
+              <Selector
+                id="p-carrera"
+                value={carrera}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  cambiar({ carrera: id, sector: id === '' ? sector : (carreras.find((c) => c.id === id)?.sectorId ?? sector) });
+                }}
+              >
+                <option value="">{sector !== '' ? 'Todas las del sector' : 'Todas las carreras'}</option>
+                {carreras
+                  .filter((c) => sector === '' || c.sectorId === sector)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nombre}
+                    </option>
+                  ))}
+              </Selector>
+            </Campo>
+            <p aria-live="polite" className="pb-2.5 text-[13px] whitespace-nowrap text-texto-2">
+              {datos !== undefined && !cargando && (
+                <>
+                  <b className="text-navy">{datos.indicadores.total}</b> {datos.indicadores.total === 1 ? 'ajuste' : 'ajustes'} en {datos.anio}
+                </>
+              )}
+            </p>
+          </div>
+          {chips.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {chips.map((c) => (
+                <span key={c.clave} className="inline-flex items-center gap-1 rounded-full border border-azul-borde bg-azul-claro py-0.5 pr-1 pl-3 text-[13px] font-semibold text-azul-osc">
+                  {c.texto}
+                  <button
+                    type="button"
+                    aria-label={`Quitar el filtro ${c.texto}`}
+                    onClick={() => {
+                      cambiar(c.quitar);
+                    }}
+                    className="grid size-6 cursor-pointer place-items-center rounded-full hover:bg-azul-borde"
+                  >
+                    <Icono nombre="x" className="size-3.5" />
+                  </button>
+                </span>
+              ))}
+              <Boton
+                variante="enlace"
+                onClick={() => {
+                  cambiar({ sector: '', carrera: '' });
+                }}
+              >
+                Quitar filtros
+              </Boton>
+            </div>
+          )}
+        </Tarjeta>
+      )}
+      {consulta.isError && !cargando && (
+        <div className="grid justify-items-start gap-2">
           <Aviso tipo="error" rol="alert">
             No se pudo cargar el panel. Inténtalo de nuevo.
           </Aviso>
-        ) : (
-          <p role="status" className="text-texto-2">
-            Cargando
-          </p>
-        )
-      ) : (
-        <>
-          <Tarjeta aria-label="Filtros del panel">
-            <div className="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1.4fr)_auto] items-end gap-x-4 gap-y-3 max-[1100px]:grid-cols-2">
-              <div className="grid content-start gap-1.5">
-                <span id="p-anio-etq" className="text-[13px] font-semibold text-navy">
-                  Año
-                </span>
-                <div role="group" aria-labelledby="p-anio-etq" className="inline-flex min-h-10 gap-0.5 rounded-s bg-neutro-fondo p-[3px]">
-                  {datos.aniosDisponibles.map((a) => (
-                    <button
-                      key={a}
-                      type="button"
-                      aria-pressed={a === anioActivo}
-                      onClick={() => {
-                        cambiar({ anio: String(a) });
-                      }}
-                      className={cn(
-                        'cursor-pointer rounded-xs px-4 py-1.5 text-[13px] font-semibold',
-                        a === anioActivo ? 'bg-superficie text-navy shadow-sombra-1' : 'text-texto-2 hover:text-navy',
-                      )}
-                    >
-                      {a}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <Campo id="p-sector" etiqueta="Sector">
-                <Selector
-                  id="p-sector"
-                  value={sector}
-                  onChange={(e) => {
-                    cambiar({ sector: e.target.value, carrera: '' });
-                  }}
-                >
-                  <option value="">Todos los sectores</option>
-                  {sectores.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.nombre}
-                    </option>
-                  ))}
-                </Selector>
-              </Campo>
-              <Campo id="p-carrera" etiqueta="Carrera">
-                <Selector
-                  id="p-carrera"
-                  value={carrera}
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    cambiar({ carrera: id, sector: id === '' ? sector : (carreras.find((c) => c.id === id)?.sectorId ?? sector) });
-                  }}
-                >
-                  <option value="">{sector !== '' ? 'Todas las del sector' : 'Todas las carreras'}</option>
-                  {carreras
-                    .filter((c) => sector === '' || c.sectorId === sector)
-                    .map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nombre}
-                      </option>
-                    ))}
-                </Selector>
-              </Campo>
-              <p aria-live="polite" className="pb-2.5 text-[13px] whitespace-nowrap text-texto-2">
-                <b className="text-navy">{datos.indicadores.total}</b> {datos.indicadores.total === 1 ? 'ajuste' : 'ajustes'} en {datos.anio}
-              </p>
-            </div>
-            {chips.length > 0 && (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                {chips.map((c) => (
-                  <span key={c.clave} className="inline-flex items-center gap-1 rounded-full border border-azul-borde bg-azul-claro py-0.5 pr-1 pl-3 text-[13px] font-semibold text-azul-osc">
-                    {c.texto}
-                    <button
-                      type="button"
-                      aria-label={`Quitar el filtro ${c.texto}`}
-                      onClick={() => {
-                        cambiar(c.quitar);
-                      }}
-                      className="grid size-6 cursor-pointer place-items-center rounded-full hover:bg-azul-borde"
-                    >
-                      <Icono nombre="x" className="size-3.5" />
-                    </button>
-                  </span>
-                ))}
-                <Boton
-                  variante="enlace"
-                  onClick={() => {
-                    cambiar({ sector: '', carrera: '' });
-                  }}
-                >
-                  Quitar filtros
-                </Boton>
-              </div>
-            )}
-          </Tarjeta>
+          <Boton
+            variante="secundario"
+            onClick={() => {
+              void consulta.refetch();
+            }}
+          >
+            Reintentar
+          </Boton>
+        </div>
+      )}
+      {mostrado !== undefined && (
+        <div aria-busy={cargando} inert={cargando} className={cn('grid gap-4 transition-opacity', cargando && 'opacity-50')}>
           <Contenido
-            datos={datos}
-            sector={sector}
-            carrera={carrera}
-            nombreSector={nombreSector}
-            nombreCarrera={nombreCarrera}
+            datos={mostrado.datos}
+            sector={mostrado.sector}
+            carrera={mostrado.carrera}
+            nombreSector={nombreDe(sectores, mostrado.sector)}
+            nombreCarrera={nombreDe(carreras, mostrado.carrera)}
             alCambiarAnio={(a) => {
               cambiar({ anio: String(a) });
             }}
           />
-        </>
+        </div>
       )}
     </section>
   );

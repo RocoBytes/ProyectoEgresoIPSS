@@ -80,7 +80,7 @@ Fuera de alcance: mallas (RF-06), exportación (RF-10), catálogos reales, usuar
 
 - Rama `hito-3`, encima de `hito-2`. Un commit por tarea como mínimo.
 - Previsión: unas 2.500 líneas, en PR encadenados. La estrategia de cadena sigue pendiente del usuario y se decide antes del push. No se hace push.
-- Último límite revisado por la revisión nativa: `af20d48`.
+- Último límite revisado por la revisión nativa: `ecedb33`.
 
 ## Progreso y evidencia
 
@@ -141,6 +141,19 @@ Fuera de alcance: mallas (RF-06), exportación (RF-10), catálogos reales, usuar
     - falta el número sobre la columna del mes máximo;
     - los tooltips de las barras HTML son `title` nativos.
     - El dibujo de Recharts no se pudo probar en jsdom.
+  - Commit `ecedb33`.
+  - Revisión nativa del tramo `af20d48..ecedb33` (P3b y P4): riesgo medio, 1.240 líneas. El usuario la autorizó y se aprobó; quedó reconocida. El nuevo límite revisado es `ecedb33`.
+  - Dejó una advertencia: con `keepPreviousData`, el panel mezclaba los filtros nuevos de la URL con los datos viejos mientras cargaba, y un clic podía armar `carrera=<id de sector>`. También faltaba avisar cuando falla una recarga.
+  - Desde aquí el usuario indicó: «todos los cambios que vengan, acéptalos todos para hacer la revisión». Las revisiones siguientes se autorizan con esa instrucción.
+- P4b (commit de esta tarea):
+  - Los datos viajan con los filtros con que se pidieron, y el contenido y los clics salen de ahí. El título del grupo sale del `tipo` de las filas.
+  - Mientras carga, el contenido queda con `aria-busy`, `inert` y atenuado. Si una recarga falla, aparece un aviso con «Reintentar».
+  - Pruebas de los indicadores de cerrados y total, del estado en vuelo y de los fallos.
+  - Cifra sobre la columna del máximo: colgaba de la barra de anulados, que mide cero, y Recharts numeraba sin las barras vacías. Se resolvió con una barra invisible con el total, en su propio eje X oculto.
+  - Evidencia:
+    - `npm test` con 26 reglas, Jest 264 y Vitest 147; lint y tipos en 0.
+    - El padre comprobó en Chrome sin interfaz contra el servidor de desarrollo: panel completo, desglose por carrera con el sector Tecnologías, diálogos de cerrar y anular, y un cierre completo desde la pantalla con archivo adjunto. Quedó «CERRADO · 26-11-2026», con historial, evidencia, SHA-256 y el toast. La cifra «3» sale sobre marzo.
+    - Ese cierre (R-2026-016) quedó en la base de desarrollo.
 
 ## Próximo paso
 
