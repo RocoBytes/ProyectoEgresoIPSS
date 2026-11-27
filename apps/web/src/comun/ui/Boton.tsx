@@ -2,7 +2,8 @@ import type { ButtonHTMLAttributes } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from './cn';
 
-const variantes = cva(
+/** También se usa para dar aspecto de botón a un enlace de navegación. */
+export const clasesBoton = cva(
   'inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-s border px-4 text-[13.5px] font-semibold disabled:cursor-not-allowed disabled:opacity-60',
   {
     variants: {
@@ -20,8 +21,8 @@ const variantes = cva(
   },
 );
 
-type Props = ButtonHTMLAttributes<HTMLButtonElement> & VariantProps<typeof variantes>;
+type Props = ButtonHTMLAttributes<HTMLButtonElement> & VariantProps<typeof clasesBoton>;
 
 export function Boton({ variante, ancho, className, type = 'button', ...resto }: Props) {
-  return <button type={type} className={cn(variantes({ variante, ancho }), className)} {...resto} />;
+  return <button type={type} className={cn(clasesBoton({ variante, ancho }), className)} {...resto} />;
 }

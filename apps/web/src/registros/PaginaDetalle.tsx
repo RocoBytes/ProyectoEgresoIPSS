@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import type { DetalleRegistro, EvidenciaResumen } from '@ipss/shared';
+import type { DetalleRegistro } from '@ipss/shared';
 import { ErrorApi } from '../api/cliente';
 import { Aviso } from '../comun/Aviso';
+import { FilaDescarga } from '../comun/FilaDescarga';
 import { fechaTexto, hoyEnSantiago, marcaTexto } from '../comun/fecha-texto';
 import { Icono } from '../comun/Icono';
 import { etiquetaNivel } from '../comun/niveles';
-import { tamanoTexto } from '../comun/tamano';
 import { Boton } from '../comun/ui/Boton';
 import { cn } from '../comun/ui/cn';
 import { Folio, Pill, Tarjeta } from '../comun/ui/Marcas';
@@ -16,19 +16,6 @@ import { DialogoAnular } from './DialogoAnular';
 import { DialogoCerrar } from './DialogoCerrar';
 import { DialogoEditar } from './DialogoEditar';
 import { pasosTrazabilidad, textoHistorial, TITULO_HISTORIAL } from './trazabilidad';
-
-function Archivo({ e }: { e: EvidenciaResumen }) {
-  return (
-    <li className="flex items-center justify-between gap-3 rounded-s border border-borde bg-superficie-2 px-3 py-2 text-[13px]">
-      <span className="min-w-0 [overflow-wrap:anywhere]">
-        {e.nombreOriginal} <span className="text-texto-2">{tamanoTexto(e.tamano)}</span>
-      </span>
-      <a href={`/api/evidencias/${e.id}/descarga`} className="font-semibold whitespace-nowrap text-azul-osc underline">
-        Descargar {e.nombreOriginal}
-      </a>
-    </li>
-  );
-}
 
 function Dato({ t, children }: { t: string; children: React.ReactNode }) {
   return (
@@ -119,7 +106,7 @@ function Contenido({ r }: { r: DetalleRegistro }) {
               {r.estado === 'CERRADO' && r.evidenciaCierre !== null && (
                 <Dato t="Evidencia de cierre">
                   <ul>
-                    <Archivo e={r.evidenciaCierre} />
+                    <FilaDescarga e={r.evidenciaCierre} />
                   </ul>
                   <span className="font-mono text-xs text-texto-2">SHA-256 {r.evidenciaCierre.sha256.slice(0, 24)}…</span>
                 </Dato>
@@ -143,9 +130,9 @@ function Contenido({ r }: { r: DetalleRegistro }) {
               </Dato>
               <Dato t="Evidencia de origen">
                 <ul className="grid gap-1.5">
-                  {evidencias.acta !== null && <Archivo e={evidencias.acta} />}
+                  {evidencias.acta !== null && <FilaDescarga e={evidencias.acta} />}
                   {evidencias.fotos.map((f) => (
-                    <Archivo key={f.id} e={f} />
+                    <FilaDescarga key={f.id} e={f} />
                   ))}
                 </ul>
                 {evidencias.acta !== null && (

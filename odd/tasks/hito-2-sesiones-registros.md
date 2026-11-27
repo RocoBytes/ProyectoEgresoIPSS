@@ -81,6 +81,7 @@ Fuera de alcance:
 - Rama `hito-2`, encima de `inicio-sesion`.
 - Un commit por tarea como mínimo.
 - Previsión: unas 5.000 líneas, así que la entrega irá en PR encadenados. La estrategia sigue pendiente del usuario y no se hace push.
+- **Entregada el 27-11-2026** en el PR #3 (`hito-2` → `inicio-sesion`), el 3 de 6 PR encadenados hacia `main`. La estrategia `stacked-to-main` la eligió el usuario. Tiene 5.551 líneas escritas, sobre el presupuesto de 400. El PR pide `size:exception` porque el hito es el tramo cohesivo más chico. Se fusiona con *merge commit* y después la base del PR siguiente pasa a `main`.
 
 ## Progreso y evidencia
 

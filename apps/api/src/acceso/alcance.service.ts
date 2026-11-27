@@ -55,6 +55,13 @@ export class AlcanceService {
     }
   }
 
+  /** Por qué el usuario solo consulta una carrera; `que` es lo que consulta («este registro», «sus mallas»). */
+  async motivoDeConsulta(usuario: UsuarioAutenticado, carrera: string, que = 'este registro'): Promise<string> {
+    if (usuario.rol === 'ASEGURAMIENTO_CALIDAD') return `Tu perfil es de consulta: puedes revisar y descargar ${que}, pero no modificar.`;
+    const { descripcion } = await this.alcanceDe(usuario);
+    return `${carrera} está fuera de tu alcance (${descripcion}). Puedes consultar ${que}, pero no modificar.`;
+  }
+
   private consultarCarreras(usuario: UsuarioAutenticado): Promise<ReferenciaNombrada[]> {
     switch (usuario.rol) {
       case 'DIRECTOR_SECTORIAL':

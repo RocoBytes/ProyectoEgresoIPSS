@@ -54,6 +54,14 @@ export class ValidadorArchivos {
     return this.armar(archivo, nombre, tipo.mime);
   }
 
+  /** Malla curricular: solo PDF, decidido por el contenido. */
+  async validarMalla(archivo: Express.Multer.File): Promise<ArchivoValidado | string> {
+    const nombre = nombreSeguro(archivo.originalname);
+    const tipo = await fileTypeFromFile(archivo.path);
+    if (tipo?.mime !== 'application/pdf') return `“${nombre}” no es un PDF. La malla debe adjuntarse en PDF.`;
+    return this.armar(archivo, nombre, tipo.mime);
+  }
+
   async validarFoto(archivo: Express.Multer.File): Promise<ArchivoValidado | string> {
     const nombre = nombreSeguro(archivo.originalname);
     const tipo = await fileTypeFromFile(archivo.path);

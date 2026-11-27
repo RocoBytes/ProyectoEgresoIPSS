@@ -8,11 +8,9 @@ import { RELOJ, type Reloj } from '../comun/reloj';
 import type { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { ListarRegistrosDto } from './dto/listar-registros.dto';
+import { condicionesDeRegistros, ORDEN_DE_REGISTROS } from './filtros-registros';
 
 export const POR_PAGINA = 10;
-
-// Prisma no escapa los comodines de LIKE: sin esto, buscar «%» o «_» devolvería todo.
-const escaparComodines = (texto: string): string => texto.replace(/[\\%_]/g, '\\$&');
 
 const camel = (columna: string): string => columna.replace(/_([a-z])/g, (_m, l: string) => l.toUpperCase());
 
@@ -35,12 +33,12 @@ export class RegistrosService {
   async listar(filtros: ListarRegistrosDto): Promise<RespuestaListadoRegistros> {
     const hoy = aFechaBd(hoyEnSantiago(this.reloj));
     const pagina = filtros.pagina ?? 1;
-    const donde = this.condiciones(filtros, hoy);
+    const donde = condicionesDeRegistros(filtros, hoy);
     const [total, filas] = await Promise.all([
       this.prisma.registro.count({ where: donde }),
       this.prisma.registro.findMany({
         where: donde,
-        orderBy: [{ sesion: { fecha: 'desc' } }, { anio: 'desc' }, { numero: 'desc' }],
+        orderBy: ORDEN_DE_REGISTROS,
         skip: (pagina - 1) * POR_PAGINA,
         take: POR_PAGINA,
         select: {
@@ -65,38 +63,6 @@ export class RegistrosService {
       vencido: f.estado === 'ABIERTO' && f.fechaComprometida < hoy,
     }));
     return { filas: resultado, total, pagina, porPagina: POR_PAGINA };
-  }
-
-  private condiciones(f: ListarRegistrosDto, hoy: Date): Prisma.RegistroWhereInput {
-    const donde: Prisma.RegistroWhereInput = {};
-    const y: Prisma.RegistroWhereInput[] = [];
-    // El año del filtro es el de la fecha de la SESIÓN, no el del correlativo.
-    if (f.anio !== undefined) y.push({ sesion: { fecha: { gte: aFechaBd(`${String(f.anio).padStart(4, '0')}-01-01`), lte: aFechaBd(`${String(f.anio).padStart(4, '0')}-12-31`) } } });
-    if (f.sectorId !== undefined) y.push({ carrera: { sectorId: f.sectorId } });
-    if (f.carreraId !== undefined) donde.carreraId = f.carreraId;
-    if (f.asignaturaId !== undefined) donde.asignaturaId = f.asignaturaId;
-    if (f.canalId !== undefined) y.push({ sesion: { canalId: f.canalId } });
-    if (f.nivel !== undefined) donde.nivelImpacto = f.nivel;
-    if (f.estado === 'VENCIDO') {
-      donde.estado = 'ABIERTO';
-      donde.fechaComprometida = { lt: hoy };
-    } else if (f.estado !== undefined) donde.estado = f.estado;
-    if (f.q !== undefined && f.q.trim() !== '') {
-      const q = escaparComodines(f.q.trim());
-      const contiene = { contains: q, mode: 'insensitive' as const };
-      y.push({
-        OR: [
-          { correlativo: contiene },
-          { descripcion: contiene },
-          { recurso: contiene },
-          { asignatura: { nombre: contiene } },
-          { carrera: { nombre: contiene } },
-          { sesion: { instancia: contiene } },
-        ],
-      });
-    }
-    if (y.length > 0) donde.AND = y;
-    return donde;
   }
 
   async anios(): Promise<RespuestaAnios> {
@@ -181,10 +147,8 @@ export class RegistrosService {
     };
   }
 
-  async motivoDeConsulta(usuario: UsuarioAutenticado, carrera: string): Promise<string> {
-    if (usuario.rol === 'ASEGURAMIENTO_CALIDAD') return 'Tu perfil es de consulta: puedes revisar y descargar este registro, pero no modificar.';
-    const { descripcion } = await this.alcance.alcanceDe(usuario);
-    return `${carrera} está fuera de tu alcance (${descripcion}). Puedes consultar este registro, pero no modificar.`;
+  motivoDeConsulta(usuario: UsuarioAutenticado, carrera: string): Promise<string> {
+    return this.alcance.motivoDeConsulta(usuario, carrera, 'este registro');
   }
 
   async editar(usuario: UsuarioAutenticado, id: string, cambios: EdicionRegistro): Promise<RespuestaEdicion> {

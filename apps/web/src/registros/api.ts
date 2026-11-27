@@ -1,5 +1,5 @@
 import type { DetalleRegistro, EdicionRegistro, RespuestaCambioEstado, RespuestaAnios, RespuestaEdicion, RespuestaListadoRegistros } from '@ipss/shared';
-import { solicitarJson } from '../api/cliente';
+import { solicitarArchivo, solicitarJson } from '../api/cliente';
 
 /** Nombre del parámetro en la URL de la web → nombre que espera la API. */
 export const FILTROS_URL = {
@@ -14,13 +14,25 @@ export const FILTROS_URL = {
   pagina: 'pagina',
 } as const;
 
-export function listarRegistros(parametros: URLSearchParams): Promise<RespuestaListadoRegistros> {
+/** Traduce los parámetros de la URL de la web a los de la API; la exportación no lleva `pagina`. */
+function parametrosApi(parametros: URLSearchParams, conPagina: boolean): string {
   const api = new URLSearchParams();
   for (const [web, nombreApi] of Object.entries(FILTROS_URL)) {
+    if (web === 'pagina' && !conPagina) continue;
     const valor = parametros.get(web);
     if (valor !== null && valor !== '') api.set(nombreApi, valor);
   }
-  const texto = api.toString();
+  return api.toString();
+}
+
+/** Excel con las mismas filas del listado filtrado, sin paginar. */
+export function exportarRegistros(parametros: URLSearchParams) {
+  const texto = parametrosApi(parametros, false);
+  return solicitarArchivo(`/api/registros/exportar${texto === '' ? '' : `?${texto}`}`);
+}
+
+export function listarRegistros(parametros: URLSearchParams): Promise<RespuestaListadoRegistros> {
+  const texto = parametrosApi(parametros, true);
   return solicitarJson<RespuestaListadoRegistros>(`/api/registros${texto === '' ? '' : `?${texto}`}`);
 }
 

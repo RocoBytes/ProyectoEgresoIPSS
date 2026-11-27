@@ -1,6 +1,6 @@
 import { tamanoTexto } from './tamano';
 
-export type DestinoArchivo = 'acta' | 'foto' | 'cierre';
+export type DestinoArchivo = 'acta' | 'foto' | 'cierre' | 'malla';
 export const MAXIMO_BYTES = 20 * 1024 * 1024;
 export const MENSAJE_ARCHIVO_GRANDE = 'El archivo pesa más de 20 MB. Reduce el archivo o divídelo.';
 export const MENSAJE_HEIC = 'Las fotos HEIC del iPhone hay que convertirlas a JPG antes de subirlas.';
@@ -13,6 +13,7 @@ export function validarArchivo(nombre: string, tamano: number, destino: DestinoA
   if (destino === 'foto' && !['jpg', 'jpeg', 'png'].includes(ext)) {
     return `“${nombre}” no es JPG ni PNG.${esHeic ? ` ${MENSAJE_HEIC}` : ''}`;
   }
+  if (destino === 'malla' && ext !== 'pdf') return `“${nombre}” no es un PDF. La malla debe adjuntarse en PDF.`;
   if (destino === 'cierre' && !['pdf', 'jpg', 'jpeg', 'png'].includes(ext)) {
     return esHeic ? MENSAJE_HEIC : `“${nombre}” no se puede usar como evidencia. Adjunta un PDF, JPG o PNG.`;
   }

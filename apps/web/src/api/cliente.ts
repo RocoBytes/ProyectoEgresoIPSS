@@ -142,3 +142,18 @@ export async function solicitarJson<T>(ruta: string, opciones: OpcionesSolicitud
 export async function solicitarSinContenido(ruta: string, opciones: OpcionesSolicitud = {}): Promise<void> {
   await comprobar(await ejecutar(ruta, opciones));
 }
+
+/** Nombre del archivo según Content-Disposition, sin separadores de ruta; `null` si la cabecera no lo trae. */
+export function nombreDeDescarga(cabecera: string | null): string | null {
+  const nombre = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(cabecera ?? '')?.[1];
+  if (nombre === undefined) return null;
+  const limpio = nombre.replace(/[\\/]/g, '_').trim();
+  return limpio === '' ? null : limpio;
+}
+
+/** Petición que responde con un archivo. Lanza ErrorApi si el estado no es 2xx. */
+export async function solicitarArchivo(ruta: string, opciones: OpcionesSolicitud = {}): Promise<{ blob: Blob; nombre: string | null }> {
+  const respuesta = await ejecutar(ruta, opciones);
+  await comprobar(respuesta);
+  return { blob: await respuesta.blob(), nombre: nombreDeDescarga(respuesta.headers.get('Content-Disposition')) };
+}

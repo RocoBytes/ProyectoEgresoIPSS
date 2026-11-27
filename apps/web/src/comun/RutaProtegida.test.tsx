@@ -10,8 +10,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function conSesion(rol: Rol) {
+function conSesion(rol: Rol, extra: Parameters<typeof simularApi>[0] = {}) {
   return simularApi({
+    ...extra,
     'GET /api/acceso/yo': () => respuestaJson(200, usuarios[rol]),
     'POST /api/acceso/salir': () => sinContenido(),
     'POST /api/acceso/renovar': () => sinContenido(),
@@ -37,11 +38,14 @@ describe('RutaProtegida', () => {
   });
 
   it('con sesión muestra la estructura y el contenido de la ruta', async () => {
-    conSesion('DIRECTOR_SECTORIAL');
-    // Mallas sigue siendo un marcador; Registros ya tiene su pantalla y sus propias pruebas.
+    // Todas las pantallas ya existen y tienen sus propias pruebas: aquí solo importa la estructura que las rodea.
+    conSesion('DIRECTOR_SECTORIAL', {
+      'GET /api/catalogos': () => respuestaJson(200, { sectores: [{ id: 's1', nombre: 'Tecnologías' }], carreras: [{ id: 'c1', nombre: 'Informática', sectorId: 's1' }], canales: [] }),
+      'GET /api/mallas?carreraId=c1': () => respuestaJson(200, { versiones: [], permisos: { puedeSubir: true } }),
+    });
     montar(rutasApp, '/mallas');
     expect(await screen.findByRole('heading', { name: 'Mallas' })).toBeDefined();
-    expect(screen.getByText('En construcción: llega en el próximo hito.')).toBeDefined();
+    expect(await screen.findByText('Informática aún no tiene versiones de malla')).toBeDefined();
     const nav = screen.getByRole('navigation', { name: 'Secciones' });
     expect(nav.querySelector('[aria-current="page"]')?.textContent).toBe('Mallas');
   });
