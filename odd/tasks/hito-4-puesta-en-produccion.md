@@ -76,7 +76,7 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
 
 - Rama `hito-4`, encima de `hito-3`. Un commit por tarea como mínimo.
 - Previsión: unas 2.000 líneas, en PR encadenados. La estrategia de cadena sigue pendiente del usuario y se decide antes del push. No se hace push.
-- Límite revisado por la revisión nativa: `0dbec36`.
+- Límite revisado por la revisión nativa: `03792da`.
 
 ## Progreso y evidencia
 
@@ -234,6 +234,15 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
   - **Evidencia:**
     - El padre volvió a correr `npm run test:respaldo` con resultado correcto, incluido «reiniciado fuera de la ventana: retomó el reintento» y «código 1; 16 tablas, permisos y triggers sin cambios».
     - Según el escritor: `npm test` con 26 reglas, Jest 300 y Vitest 147; lint y tipos en 0.
+  - Commit `03792da`.
+  - **Revisión nativa** de `0dbec36..03792da`: riesgo alto, 151 líneas, 4 lentes, autorizada por la instrucción del usuario. Se aprobó y quedó reconocida. El límite revisado pasa a `03792da`.
+  - **Advertencia aceptada:** la restauración volcaba todo el SQL a `/tmp`, que es un tmpfs, y una base grande podía no caber.
+  - **No se toman:** sugerencias de legibilidad (un `elif` denso en `programar.sh`, una hora duplicada en la prueba, el mensaje cuando no hay tokens revocados) y pruebas de las rutas de descarte del estado de reintento.
+- [x] C3d (commit de esta tarea, hecho por el padre en línea porque es un solo archivo):
+  - `restaurar.sh` pasa el SQL de `pg_restore` por una tubería hacia `psql --single-transaction`, sin archivo intermedio.
+  - Si `pg_restore` falla a mitad de camino, se inyecta una sentencia que falla y `ON_ERROR_STOP` deshace la transacción entera.
+  - Evidencia: `sh -n` correcto y `npm run test:respaldo` correcto (revocación, 33 descargas idénticas, respaldo dañado rechazado, atomicidad sin cambios y reintento).
+  - No hay prueba de una falla de `pg_restore` a mitad del flujo: el volcado se verifica antes con `pg_restore --list`.
 
 ## Próximo paso
 

@@ -49,9 +49,14 @@ pg_restore --list "$origen/bd.dump" > /dev/null || fallar "el volcado no se pued
 # sesiones; psql lo corre todo en UNA transacción con ON_ERROR_STOP: o queda restaurada y con las sesiones
 # revocadas, o la base queda exactamente como estaba.
 log "Restaurando la base de datos y revocando las sesiones (una sola transacción)"
-guion=/tmp/restaurar.sql
-pg_restore --clean --if-exists --file="$guion" "$origen/bd.dump" || fallar "pg_restore no pudo leer el volcado; no se cambió nada"
-cat >> "$guion" <<'SQL'
+# El SQL pasa por una tubería y no por un archivo: /tmp es un tmpfs y el volcado en texto plano puede ser
+# varias veces más grande que el comprimido. Si pg_restore falla a mitad de camino, se inyecta una sentencia
+# que falla a propósito; con ON_ERROR_STOP psql aborta y la transacción única se deshace entera.
+salida=$(
+  {
+    pg_restore --clean --if-exists --file=- "$origen/bd.dump" \
+      || printf '\n\\echo pg_restore falló a mitad del volcado\nselect error_de_restauracion_abortar();\n'
+    cat <<'SQL'
 
 -- El volcado trae el estado de la fecha del respaldo: un token revocado después volvería a valer.
 -- El guion de pg_restore deja search_path vacío, por eso el esquema va explícito.
@@ -59,9 +64,8 @@ with t as (update public.refresh_token set revocado_en = now() where revocado_en
   select count(*) as revocados from t \gset
 \echo REVOCADOS :revocados
 SQL
-salida=$(psql --no-psqlrc -q -At -v ON_ERROR_STOP=1 --single-transaction --file="$guion") \
-  || fallar "la restauración falló y no se cambió nada (una sola transacción). ¿Está detenida la API?"
-rm -f "$guion"
+  } | psql --no-psqlrc -q -At -v ON_ERROR_STOP=1 --single-transaction --file=-
+) || fallar "la restauración falló y no se cambió nada (una sola transacción). ¿Está detenida la API?"
 revocados=$(echo "$salida" | sed -n 's/^REVOCADOS //p')
 log "Refresh tokens revocados: $revocados (todos los usuarios deben iniciar sesión de nuevo)"
 
