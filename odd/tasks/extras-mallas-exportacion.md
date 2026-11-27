@@ -48,7 +48,7 @@ TDD desactivado. Jest (`bd-pruebas`), Vitest, `npm run test:bd` y `npm run e2e`.
 ## Tareas
 
 - [x] **E1a API de mallas.** Listado y subida con validaciones, permisos y transacción. Ruta: delegada (escritor de la API).
-- [ ] **E2a API de exportación.** Mismos filtros que el listado, streaming, celdas de texto y tope de filas. Ruta: delegada (mismo escritor).
+- [x] **E2a API de exportación.** Mismos filtros que el listado, streaming, celdas de texto y tope de filas. Ruta: delegada (mismo escritor).
 - [ ] **E1b Web de mallas.** Ruta: delegada (escritor de la web).
 - [ ] **E2b Web de exportación.** Ruta: delegada (mismo escritor).
 - [ ] **E3 Cierre.** Prueba en Compose, ADR y documentación. Ruta: inline o delegada.
@@ -81,6 +81,27 @@ TDD desactivado. Jest (`bd-pruebas`), Vitest, `npm run test:bd` y `npm run e2e`.
     - un `carreraId` mal formado da 404.
   - 8 pruebas: orden, campo `vigente`, permisos, descarga idéntica, errores por campo, 413, carrera entre dos subidas y objetos de nivel Malla.
   - Evidencia: el padre volvió a correr `npm test` (26 reglas, Jest 309 en 29 suites, Vitest 149).
+  - Commit `a55acb6`.
+- E2a (commit de esta tarea):
+  - **Filtros compartidos.** `filtros-registros.ts` (`condicionesDeRegistros`, `ORDEN_DE_REGISTROS`) queda compartido entre el listado y la exportación.
+  - **Endpoint.** `GET /api/registros/exportar` usa `exceljs` `WorkbookWriter` y lee en lotes de 1.000.
+    - Una hoja «Registros» con encabezado en negrita, paneles congelados y 19 columnas.
+    - Fechas `dd-mm-aaaa` y «Registrado el» en hora de Santiago.
+    - Más de 20.000 filas da 400 antes de escribir nada.
+    - Usa `Cache-Control: private, no-store`.
+  - **Columnas que eligió el escritor, aceptadas:**
+    - N° es el correlativo;
+    - Año es el de la sesión;
+    - «Registrado por» es quien creó la sesión;
+    - «Registrado el» es `creado_en`.
+  - **Pruebas:**
+    - 13 combinaciones de filtros coinciden con el listado, en el mismo orden;
+    - cabeceras y nombre del archivo;
+    - las celdas que empiezan con `=`, `+`, `-` o `@` salen como texto, y ninguna celda es fórmula;
+    - el tope se prueba bajándolo en memoria;
+    - 401, 200 para los tres perfiles y 400 con filtros inválidos.
+  - ADR 0022 (mallas y exportación).
+  - **Evidencia:** el padre volvió a correr `npm test` (26 reglas, Jest 316 en 30 suites, Vitest 149). Lint y tipos en 0.
 
 ## Próximo paso
 

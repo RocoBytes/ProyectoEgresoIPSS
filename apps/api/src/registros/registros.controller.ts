@@ -1,4 +1,5 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Query, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Query, Res, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import type { Response } from 'express';
 import type { DetalleRegistro, RespuestaAnios, RespuestaCambioEstado, RespuestaEdicion, RespuestaListadoRegistros } from '@ipss/shared';
 import { Roles, TODOS_LOS_ROLES } from '../acceso/roles';
 import { UsuarioActual, type UsuarioAutenticado } from '../acceso/usuario-autenticado';
@@ -7,6 +8,7 @@ import { AnularRegistroDto } from './dto/anular-registro.dto';
 import { CierreAnulacionService } from './cierre-anulacion.service';
 import { EditarRegistroDto } from './dto/editar-registro.dto';
 import { ListarRegistrosDto } from './dto/listar-registros.dto';
+import { ExportacionRegistrosService } from './exportacion-registros.service';
 import { RegistrosService } from './registros.service';
 
 // Un id mal formado es, para el usuario, un registro que no existe.
@@ -17,12 +19,20 @@ export class RegistrosController {
   constructor(
     private readonly registros: RegistrosService,
     private readonly cierres: CierreAnulacionService,
+    private readonly exportacion: ExportacionRegistrosService,
   ) {}
 
   @Roles(...TODOS_LOS_ROLES)
   @Get()
   listar(@Query() filtros: ListarRegistrosDto): Promise<RespuestaListadoRegistros> {
     return this.registros.listar(filtros);
+  }
+
+  // Mismos filtros y orden que el listado, sin paginar. Declarada antes que ':id'.
+  @Roles(...TODOS_LOS_ROLES)
+  @Get('exportar')
+  exportar(@Query() filtros: ListarRegistrosDto, @Res() respuesta: Response): Promise<void> {
+    return this.exportacion.exportar(filtros, respuesta);
   }
 
   // Declarada antes que ':id' para que 'anios' no se lea como un id.
