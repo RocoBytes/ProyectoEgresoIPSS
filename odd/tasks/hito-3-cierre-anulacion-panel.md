@@ -81,6 +81,7 @@ Fuera de alcance: mallas (RF-06), exportación (RF-10), catálogos reales, usuar
 - Rama `hito-3`, encima de `hito-2`. Un commit por tarea como mínimo.
 - Previsión: unas 2.500 líneas, en PR encadenados. La estrategia de cadena sigue pendiente del usuario y se decide antes del push. No se hace push.
 - Último límite revisado por la revisión nativa: `f99164e`.
+- **Entregada el 27-11-2026** en el PR #4 (`hito-3` → `hito-2`), el 4 de 6 PR encadenados hacia `main`. La estrategia `stacked-to-main` la eligió el usuario. Tiene 3.475 líneas escritas, sobre el presupuesto de 400. El PR pide `size:exception` porque el hito es el tramo cohesivo más chico. Se fusiona con *merge commit* y después la base del PR siguiente pasa a `main`.
 
 ## Progreso y evidencia
 

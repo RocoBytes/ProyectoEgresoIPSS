@@ -69,6 +69,7 @@ TDD desactivado. Jest (`bd-pruebas`), Vitest, `npm run test:bd` y `npm run e2e`.
 
 - Rama `extras-mallas-exportacion`, encima de `hito-4`. Previsión: unas 1.500 líneas, en PR encadenados. No se hace push.
 - Límite revisado por la revisión nativa: `dbb5fbc`.
+- **Entregada el 27-11-2026** en el PR #6 (`extras-mallas-exportacion` → `hito-4`), el 6 de 6 PR encadenados hacia `main`. La estrategia `stacked-to-main` la eligió el usuario. Tiene 2.177 líneas escritas, sobre el presupuesto de 400. El PR pide `size:exception` porque el hito es el tramo cohesivo más chico. Se fusiona con *merge commit* y después la base del PR siguiente pasa a `main`.
 
 ## Progreso y evidencia
 
@@ -172,4 +173,4 @@ TDD desactivado. Jest (`bd-pruebas`), Vitest, `npm run test:bd` y `npm run e2e`.
 
 ## Próximo paso
 
-Extras cerrados. Quedan decisiones del usuario: estrategia de PR y push, crear `infra/.env.ejemplo`, y las brechas de clave propia y alcance.
+Extras entregados en el PR #6, el 27-11-2026, el último de los 6 PR encadenados hacia `main`. Falta que el usuario cree `infra/.env.ejemplo` y que decida las brechas de clave propia y de alcance. Después se revisan y fusionan los PR en orden, del #1 al #6.

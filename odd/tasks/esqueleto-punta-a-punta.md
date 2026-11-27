@@ -82,6 +82,7 @@ Es el primer hito acordado (hasta el 29-11-2026). Además prueba tres cosas que 
 - Un commit por punto de control como mínimo.
 - Previsión: unas 2.000 líneas escritas a mano, sin contar los lockfiles, así que supera el presupuesto de 400 líneas por PR.
 - Estrategia: `ask-on-risk`. Se pregunta si encadenar antes de abrir el primer PR. No se hace push ni se abre PR sin pedirlo.
+- **Entregada el 27-11-2026** en el PR #1 (`esqueleto` → `main`), el 1 de 6 PR encadenados hacia `main`. La estrategia `stacked-to-main` la eligió el usuario. Tiene 3.297 (más 13.840 del lockfile) líneas escritas, sobre el presupuesto de 400. El PR pide `size:exception` porque el hito es el tramo cohesivo más chico. Se fusiona con *merge commit* y después la base del PR siguiente pasa a `main`.
 
 ## Progreso y evidencia
 
@@ -151,4 +152,4 @@ Es el primer hito acordado (hasta el 29-11-2026). Además prueba tres cosas que 
 
 ## Próximo paso
 
-El usuario crea `infra/.env.ejemplo` y `infra/.env` y revisa `apps/api/.env.ejemplo`. Después decide sobre la revisión nativa bloqueada, el push y los PR.
+Entregado en el PR #1, el 27-11-2026. Falta que el usuario cree `infra/.env.ejemplo` y revise `apps/api/.env.ejemplo`.

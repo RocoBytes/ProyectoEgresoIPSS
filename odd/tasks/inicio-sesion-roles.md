@@ -75,6 +75,7 @@ Fuera de alcance: recuperar o cambiar la contraseña, la herramienta de producci
 - Rama `inicio-sesion`, encima de `esqueleto`.
 - Un commit por tarea como mínimo.
 - Previsión: unas 2.500 líneas, así que supera las 400 por PR. La estrategia de PR sigue pendiente del usuario y no se hace push.
+- **Entregada el 27-11-2026** en el PR #2 (`inicio-sesion` → `esqueleto`), el 2 de 6 PR encadenados hacia `main`. La estrategia `stacked-to-main` la eligió el usuario. Tiene 5.170 líneas escritas, sobre el presupuesto de 400. El PR pide `size:exception` porque el hito es el tramo cohesivo más chico. Se fusiona con *merge commit* y después la base del PR siguiente pasa a `main`.
 
 ## Progreso y evidencia
 
