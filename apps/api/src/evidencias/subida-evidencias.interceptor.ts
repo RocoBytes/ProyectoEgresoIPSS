@@ -5,7 +5,7 @@ import { BadRequestException, CallHandler, ExecutionContext, Inject, Injectable,
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import type { MulterField } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
 import { diskStorage } from 'multer';
-import { catchError, defer, finalize, mergeAll, type Observable, throwError } from 'rxjs';
+import { catchError, concatMap, defer, finalize, from, map, mergeAll, mergeMap, type Observable, throwError } from 'rxjs';
 import { CONFIGURACION, type Configuracion } from '../configuracion';
 import { SUBDIRECTORIO_ENTRANTES } from './disco-local';
 
@@ -58,24 +58,36 @@ abstract class SubidaBase implements NestInterceptor {
       return throwError(() => new PayloadTooLargeException({ statusCode: 413, message: MENSAJE_ENVIO_GRANDE }));
     }
     // El interceptor interno es asíncrono y entrega una Promise de Observable: `mergeAll` aplana ese Observable interno.
-    return defer(async () => this.interno.intercept(contexto, siguiente)).pipe(
+    const flujo = defer(async () => this.interno.intercept(contexto, siguiente)).pipe(
       mergeAll(),
       catchError((error: unknown) => throwError(() => traducir(error, this.mensajes))),
-      // Se ejecute o no el caso de uso (un :id mal formado falla en un pipe, después de Multer), no puede quedar nada en `.entrantes`.
-      // Lo que el servicio ya movió con `incorporar` no existe en esa ruta y `force` lo ignora.
-      finalize(() => void limpiarTemporales(peticion)),
     );
+    return conLimpieza(peticion, flujo);
   }
 }
 
-interface PeticionConArchivos {
+/**
+ * Borra los temporales de la petición ANTES de entregar el resultado o el error: así, cuando el cliente recibe la respuesta,
+ * `.entrantes` ya está limpio. Se ejecute o no el caso de uso (un :id mal formado falla en un pipe, después de Multer),
+ * no puede quedar nada ahí. Lo que el servicio ya movió con `incorporar` no existe en esa ruta y `force` lo ignora.
+ */
+export function conLimpieza<T>(peticion: PeticionConArchivos, flujo: Observable<T>): Observable<T> {
+  return flujo.pipe(
+    concatMap((valor) => from(limpiarTemporales(peticion)).pipe(map(() => valor))),
+    catchError((error: unknown) => from(limpiarTemporales(peticion)).pipe(mergeMap(() => throwError(() => error)))),
+    // Respaldo para lo que no emite ni falla (p. ej. el cliente cancela): no se espera, pero tampoco se queda el archivo.
+    finalize(() => void limpiarTemporales(peticion)),
+  );
+}
+
+export interface PeticionConArchivos {
   headers: Record<string, string | string[] | undefined>;
   file?: { path?: string };
   files?: Array<{ path?: string }> | Record<string, Array<{ path?: string }>>;
 }
 
 /** Borra los temporales que Multer escribió para esta petición; un fallo al borrar nunca cambia la respuesta. */
-async function limpiarTemporales(peticion: PeticionConArchivos): Promise<void> {
+export async function limpiarTemporales(peticion: PeticionConArchivos): Promise<void> {
   const archivos = [...(peticion.file === undefined ? [] : [peticion.file]), ...(Array.isArray(peticion.files) ? peticion.files : Object.values(peticion.files ?? {}).flat())];
   await Promise.all(archivos.flatMap((a) => (a.path === undefined ? [] : [rm(a.path, { force: true }).catch(() => undefined)])));
 }

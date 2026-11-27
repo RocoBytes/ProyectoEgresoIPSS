@@ -58,6 +58,7 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
 ## Tareas
 
 - [x] **C1 Catálogos reales.** CLI `catalogos` con planilla Excel (exceljs ya instalado), modo de prueba, plantilla generada, transacción, carga repetible sin duplicar y lectura por stdin para usarlo dentro del contenedor. Ruta: delegada (escritor de la API).
+- [x] **C1b Hallazgos de la revisión de C1.** Limpieza de temporales esperada antes de responder, prueba unitaria que la distingue y pruebas de los límites de entrada del comando de catálogos. Ruta: delegada (escritor de la API).
 - [ ] **C2 Usuarios.** CLI `usuarios` (crear con alcance, desactivar, activar, restablecer clave, listar). Revoca sesiones al desactivar o restablecer y funciona con `NODE_ENV=production`. Ruta: delegada (mismo escritor).
 - [ ] **C3 Respaldo y restauración.** Servicio `respaldo`, scripts para respaldar y restaurar, y prueba de restauración. Ruta: delegada (escritor de infraestructura).
 - [ ] **C4 Punta a punta.** Playwright 1.65.1, tres flujos, comando `npm run e2e` y job en CI. Ruta: delegada.
@@ -75,7 +76,7 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
 
 - Rama `hito-4`, encima de `hito-3`. Un commit por tarea como mínimo.
 - Previsión: unas 2.000 líneas, en PR encadenados. La estrategia de cadena sigue pendiente del usuario y se decide antes del push. No se hace push.
-- Límite revisado por la revisión nativa: `f99164e`. El tramo `f99164e..a5f2075` (175 líneas) sigue pendiente.
+- Límite revisado por la revisión nativa: `5cbc52e`.
 
 ## Progreso y evidencia
 
@@ -100,6 +101,24 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
   - **Evidencia:**
     - `npm test` con salida 0: 26 reglas, Jest 272 (25 suites) y Vitest 147; lint y tipos en 0.
     - Con `NODE_ENV=production`, la plantilla generada pasa `--prueba` sin errores.
+  - Commit `5cbc52e`.
+  - Revisión nativa del tramo `f99164e..5cbc52e` (cola del hito 3 y C1): riesgo medio, 873 líneas, autorizada por la instrucción del usuario. Se aprobó y quedó reconocida. El límite revisado pasa a `5cbc52e`.
+  - La revisión dejó tres hallazgos para C1b:
+    - la limpieza de temporales no se espera antes de responder;
+    - las pruebas de esa limpieza pasan igual sin ella;
+    - faltan pruebas de los límites de entrada del comando.
+- C1b (commit de esta tarea):
+  - **Limpieza:** `conLimpieza` espera el borrado de temporales antes de emitir el resultado (`concatMap`) o de relanzar el error (`catchError`). `finalize` queda solo como respaldo ante cancelaciones.
+  - **Pruebas que distinguen la limpieza:** 3 pruebas unitarias con archivos reales en disco y manejadores que fallan o terminan bien. Fallan si se desactiva `limpiarTemporales`; lo comprobó el escritor.
+  - **Comando de catálogos:** `principal` se puede probar. Hay 8 pruebas de los límites:
+    - 5 MB por archivo y por stdin;
+    - extensión `.xlsx`;
+    - firma zip;
+    - salida 2 si los argumentos son incorrectos;
+    - salida 1 si la validación falla, sin escribir;
+    - `--plantilla` que no pisa un archivo existente;
+    - más de 20.000 filas.
+  - **Evidencia:** `npm test` con salida 0, 26 reglas, Jest 283 (26 suites) y Vitest 147; lint y tipos en 0. El padre volvió a correr `npm test` con el mismo resultado.
 
 ## Próximo paso
 

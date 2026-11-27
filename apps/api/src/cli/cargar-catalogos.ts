@@ -4,7 +4,7 @@ import { CANALES_EJEMPLO, CARRERAS_EJEMPLO, SECTORES_EJEMPLO } from './datos-eje
 
 export const MAXIMO_BYTES_PLANILLA = 5 * 1024 * 1024;
 // Una planilla real tiene cientos de filas; el tope evita que un .xlsx inflado agote la memoria.
-const MAXIMO_FILAS_POR_HOJA = 20_000;
+export const MAXIMO_FILAS_POR_HOJA = 20_000;
 
 export interface ErrorPlanilla {
   hoja: string;
@@ -85,7 +85,8 @@ export async function leerPlanilla(contenido: Buffer): Promise<{ planilla: Plani
       errores.push({ hoja: nombre, fila: 1, mensaje: `Faltan las columnas ${faltantes.map((c) => `«${c}»`).join(', ')} en el encabezado.` });
       return [];
     }
-    if (hoja.rowCount > MAXIMO_FILAS_POR_HOJA) {
+    // Sin contar el encabezado.
+    if (hoja.rowCount - 1 > MAXIMO_FILAS_POR_HOJA) {
       errores.push({ hoja: nombre, fila: 0, mensaje: `La hoja tiene más de ${String(MAXIMO_FILAS_POR_HOJA)} filas.` });
       return [];
     }

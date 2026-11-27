@@ -14,14 +14,14 @@ const FIRMA_ZIP = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
 /** Con `npm run`, el directorio de trabajo es el del paquete; INIT_CWD conserva desde donde escribió el usuario. */
 const rutaDe = (ruta: string): string => (isAbsolute(ruta) ? ruta : resolve(process.env['INIT_CWD'] ?? process.cwd(), ruta));
 
-async function leerEntrada(origen: string): Promise<Buffer> {
+async function leerEntrada(origen: string, stdin: AsyncIterable<Uint8Array>): Promise<Buffer> {
   const demasiado = `La planilla pesa más de ${String(MAXIMO_BYTES_PLANILLA / 1024 / 1024)} MB.`;
   let contenido: Buffer;
   if (origen === '-') {
     const trozos: Buffer[] = [];
     let total = 0;
-    for await (const trozo of process.stdin) {
-      const b = Buffer.from(trozo as Uint8Array);
+    for await (const trozo of stdin) {
+      const b = Buffer.from(trozo);
       total += b.length;
       if (total > MAXIMO_BYTES_PLANILLA) throw new Error(demasiado);
       trozos.push(b);
@@ -62,7 +62,25 @@ export function formatearResultado(r: ResultadoCarga, prueba: boolean): string[]
   return lineas;
 }
 
-async function principal(args: string[]): Promise<number> {
+export interface Dependencias {
+  /** Entrada estándar (por defecto la del proceso). */
+  stdin?: AsyncIterable<Uint8Array>;
+  stdout?: { write(contenido: Uint8Array): unknown };
+  /** Conexión a la base (por defecto DATABASE_URL). */
+  url?: string;
+}
+
+/** Devuelve el código de salida: 0 bien, 1 error de la planilla o de la ejecución, 2 argumentos incorrectos. */
+export async function principal(args: string[], dependencias: Dependencias = {}): Promise<number> {
+  try {
+    return await ejecutar(args, dependencias);
+  } catch (error) {
+    console.error(`La carga de catálogos falló: ${error instanceof Error ? error.message : String(error)}`);
+    return 1;
+  }
+}
+
+async function ejecutar(args: string[], dependencias: Dependencias): Promise<number> {
   if (args[0] === '--plantilla') {
     const salida = args[1];
     if (salida === undefined || args.length > 2) {
@@ -70,7 +88,7 @@ async function principal(args: string[]): Promise<number> {
       return 2;
     }
     const contenido = await generarPlantilla();
-    if (salida === '-') process.stdout.write(contenido);
+    if (salida === '-') (dependencias.stdout ?? process.stdout).write(contenido);
     else {
       const ruta = rutaDe(salida);
       // `wx`: no pisa una planilla que el operador ya haya llenado.
@@ -86,12 +104,12 @@ async function principal(args: string[]): Promise<number> {
     console.error(USO);
     return 2;
   }
-  const url = process.env['DATABASE_URL'];
+  const url = dependencias.url ?? process.env['DATABASE_URL'];
   if (url === undefined || url.trim() === '') {
     console.error('Falta la variable de entorno DATABASE_URL (conexión a la base con el rol ipss_api).');
     return 1;
   }
-  const contenido = await leerEntrada(origen);
+  const contenido = await leerEntrada(origen, dependencias.stdin ?? process.stdin);
   const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
   try {
     const resultado = await cargarCatalogos(prisma, contenido, { prueba });
@@ -105,11 +123,5 @@ async function principal(args: string[]): Promise<number> {
 
 // Solo corre al ejecutar el archivo, no al importarlo desde una prueba. Permitido con NODE_ENV=production: es la vía de TI.
 if (require.main === module) {
-  principal(process.argv.slice(2)).then(
-    (codigo) => process.exit(codigo),
-    (error: unknown) => {
-      console.error(`La carga de catálogos falló: ${error instanceof Error ? error.message : String(error)}`);
-      process.exit(1);
-    },
-  );
+  void principal(process.argv.slice(2)).then((codigo) => process.exit(codigo));
 }
