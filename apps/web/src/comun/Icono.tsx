@@ -59,6 +59,7 @@ const TRAZOS = {
       <path d="M3.5 10h17M3.5 15h17M9.5 4.5v15" />
     </>
   ),
+  mas: <path d="M12 5v14M5 12h14" />,
   check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
   alerta: (
     <>

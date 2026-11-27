@@ -1,8 +1,8 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { FilaRegistro } from '@ipss/shared';
+import type { FilaRegistro, Rol } from '@ipss/shared';
 import { guardarArchivo } from '../comun/descargar';
-import { montar, respuestaJson, simularApi } from '../pruebas/ayudas';
+import { montar, respuestaJson, simularApi, usuarios } from '../pruebas/ayudas';
 import { PaginaRegistros } from './PaginaRegistros';
 
 vi.mock('../comun/descargar', () => ({ guardarArchivo: vi.fn() }));
@@ -20,9 +20,11 @@ const fila = (n: number): FilaRegistro => ({
   vencido: false,
 });
 
+let rolActual: Rol = 'DIRECTOR_SECTORIAL';
 const rutas = [{ path: '/registros', element: <PaginaRegistros /> }];
 
 beforeEach(() => {
+  rolActual = 'DIRECTOR_SECTORIAL';
   vi.mocked(guardarArchivo).mockClear();
 });
 afterEach(() => {
@@ -36,6 +38,7 @@ function preparar(entrada: string, listado: string, total: number, exportacion?:
     ...simularApi({
       'GET /api/catalogos': () =>
         respuestaJson(200, { sectores: [{ id: 's1', nombre: 'Tecnologías' }], carreras: [{ id: 'c1', nombre: 'Informática', sectorId: 's1' }], canales: [] }),
+      'GET /api/acceso/yo': () => respuestaJson(200, usuarios[rolActual]),
       'GET /api/registros/anios': () => respuestaJson(200, [2026]),
       [`GET ${listado}`]: () => respuestaJson(200, { filas: total === 0 ? [] : [fila(1)], total, pagina: 1, porPagina: 10 }),
       ...(exportacion !== undefined ? { [`GET ${urlExportacion}`]: exportacion } : {}),
@@ -118,5 +121,34 @@ describe('Exportar a Excel', () => {
     expect((await screen.findByRole('alert')).textContent).toContain('La exportación admite hasta 20.000 filas.');
     expect(vi.mocked(guardarArchivo)).not.toHaveBeenCalled();
     expect(screen.queryByText(/Se generó/)).toBeNull();
+  });
+});
+
+describe('Nueva sesión en la cabecera', () => {
+  it.each([
+    ['DIRECTOR_SECTORIAL', true],
+    ['DIRECTOR_CARRERA', true],
+    ['ASEGURAMIENTO_CALIDAD', false],
+  ] as const)('%s: el enlace visible es %s', async (rol, visible) => {
+    rolActual = rol;
+    preparar('/registros', '/api/registros', 1);
+    await botonListo();
+    if (visible) {
+      const enlace = await screen.findByRole('link', { name: 'Nueva sesión' });
+      expect(enlace.getAttribute('href')).toBe('/sesiones/nueva');
+    } else {
+      // Se espera a que la sesión cargue para no confundir "aún no llega" con "no corresponde".
+      await waitFor(() => expect(screen.queryByRole('link', { name: 'Nueva sesión' })).toBeNull());
+      await new Promise((r) => setTimeout(r, 50));
+      expect(screen.queryByRole('link', { name: 'Nueva sesión' })).toBeNull();
+    }
+  });
+
+  it('va junto al botón de exportar y después de él', async () => {
+    preparar('/registros', '/api/registros', 1);
+    const exportar = await botonListo();
+    const enlace = await screen.findByRole('link', { name: 'Nueva sesión' });
+    expect(exportar.compareDocumentPosition(enlace) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(exportar.parentElement).toBe(enlace.parentElement);
   });
 });

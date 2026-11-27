@@ -142,6 +142,12 @@ TDD desactivado. Jest (`bd-pruebas`), Vitest, `npm run test:bd` y `npm run e2e`.
   - **Pruebas:** 7 nuevas.
   - **Evidencia:** `npm test` con 26 reglas, Jest 321 y Vitest 165; lint y tipos en 0. El padre volvió a correr Vitest: 165.
   - **Hueco detectado por el escritor:** el prototipo tiene «Nueva sesión» en la cabecera de Registros, junto a Exportar, y la web no. Pasa a E2d.
+  - Commit `9fd46ea`.
+- E2d (commit de esta tarea):
+  - Enlace «Nueva sesión» a `/sesiones/nueva`, primario y con el ícono `mas`, a la derecha de Exportar, en el orden del prototipo. Solo aparece con `puedeCrear`, igual que en el menú lateral.
+  - `clasesBoton` se exporta para dar estilo de botón a un `<Link>`.
+  - 4 pruebas de visibilidad por rol.
+  - Evidencia: lint y tipos en 0; Vitest 169, y el padre lo volvió a correr con 169.
 
 ## Próximo paso
 

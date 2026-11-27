@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import type { FilaRegistro } from '@ipss/shared';
+import { useSesion } from '../acceso/sesion';
 import { ErrorApi } from '../api/cliente';
 import { guardarArchivo } from '../comun/descargar';
 import { useToast } from '../comun/Toasts';
@@ -11,7 +12,7 @@ import { fechaTexto } from '../comun/fecha-texto';
 import { Icono } from '../comun/Icono';
 import { NIVELES, etiquetaNivel } from '../comun/niveles';
 import { plural } from '../comun/plural';
-import { Boton } from '../comun/ui/Boton';
+import { Boton, clasesBoton } from '../comun/ui/Boton';
 import { Campo, Selector } from '../comun/ui/Campo';
 import { Folio, Pill, Tarjeta } from '../comun/ui/Marcas';
 import { obtenerCatalogos, obtenerObjetos } from '../sesiones/api';
@@ -145,6 +146,8 @@ export function PaginaRegistros() {
   };
   const total = lista.data?.total ?? 0;
   const toast = useToast();
+  // Igual que el menú lateral: Aseguramiento de la Calidad solo consulta y no ve el atajo para crear.
+  const puedeCrear = useSesion().data?.puedeCrear === true;
   // Se exporta lo que muestra el listado: mismos filtros y, por eso, mismo total. Solo se quita la paginación.
   const exportar = useMutation({
     mutationFn: async () => {
@@ -168,17 +171,25 @@ export function PaginaRegistros() {
         <h1 id="titulo-pagina" className="text-2xl font-bold text-navy">
           Registros
         </h1>
-        <Boton
-          variante="secundario"
-          disabled={total === 0 || exportar.isPending}
-          aria-busy={exportar.isPending}
-          onClick={() => {
-            exportar.mutate();
-          }}
-        >
-          <Icono nombre="tabla" />
-          Exportar a Excel
-        </Boton>
+        <div className="flex flex-wrap items-center gap-3">
+          <Boton
+            variante="secundario"
+            disabled={total === 0 || exportar.isPending}
+            aria-busy={exportar.isPending}
+            onClick={() => {
+              exportar.mutate();
+            }}
+          >
+            <Icono nombre="tabla" />
+            Exportar a Excel
+          </Boton>
+          {puedeCrear && (
+            <Link to="/sesiones/nueva" className={clasesBoton({ variante: 'primario' })}>
+              <Icono nombre="mas" />
+              Nueva sesión
+            </Link>
+          )}
+        </div>
       </div>
       {errorExportar !== null && (
         <Aviso tipo="error" rol="alert">
