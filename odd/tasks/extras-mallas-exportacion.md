@@ -50,7 +50,7 @@ TDD desactivado. Jest (`bd-pruebas`), Vitest, `npm run test:bd` y `npm run e2e`.
 - [x] **E1a API de mallas.** Listado y subida con validaciones, permisos y transacción. Ruta: delegada (escritor de la API).
 - [x] **E2a API de exportación.** Mismos filtros que el listado, streaming, celdas de texto y tope de filas. Ruta: delegada (mismo escritor).
 - [x] **E1b Web de mallas.** Ruta: delegada (escritor de la web).
-- [ ] **E2b Web de exportación.** Ruta: delegada (mismo escritor).
+- [x] **E2b Web de exportación.** Ruta: delegada (mismo escritor).
 - [ ] **E3 Cierre.** Prueba en Compose, ADR y documentación. Ruta: inline o delegada.
 
 ## Criterios de aceptación
@@ -128,6 +128,20 @@ TDD desactivado. Jest (`bd-pruebas`), Vitest, `npm run test:bd` y `npm run e2e`.
     - Capturas en Chrome sin interfaz contra el servidor de desarrollo:
       - Carla ve la tabla con «Malla 2023 · Vigente» y el botón «Subir versión», y el diálogo «Nueva versión de malla» con los campos del prototipo;
       - Paula ve «Solo consulta: puedes revisar y descargar sus mallas, pero no modificar.» sin el botón.
+  - Commit `e2bee69`.
+- E2b (commit de esta tarea):
+  - **Botón.** «Exportar a Excel» va en la cabecera de Registros.
+    - Se deshabilita con total 0 y mientras descarga (`aria-busy`).
+    - Muestra el toast del prototipo con el nombre efectivo y la palabra «fila» o «filas» según el total.
+    - Si la API responde un error, se muestra en un aviso con su mensaje.
+  - **Piezas reutilizables:**
+    - `parametrosApi`, compartida entre el listado y la exportación, que no envía `pagina`;
+    - `solicitarArchivo` y `nombreDeDescarga`, que leen `Content-Disposition` y quitan separadores de ruta del nombre;
+    - `comun/descargar.ts`;
+    - el ícono `tabla`.
+  - **Pruebas:** 7 nuevas.
+  - **Evidencia:** `npm test` con 26 reglas, Jest 321 y Vitest 165; lint y tipos en 0. El padre volvió a correr Vitest: 165.
+  - **Hueco detectado por el escritor:** el prototipo tiene «Nueva sesión» en la cabecera de Registros, junto a Exportar, y la web no. Pasa a E2d.
 
 ## Próximo paso
 

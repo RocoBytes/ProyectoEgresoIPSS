@@ -53,6 +53,12 @@ const TRAZOS = {
       <path d="M4.5 15v3.5a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5V15" />
     </>
   ),
+  tabla: (
+    <>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="1.5" />
+      <path d="M3.5 10h17M3.5 15h17M9.5 4.5v15" />
+    </>
+  ),
   check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
   alerta: (
     <>

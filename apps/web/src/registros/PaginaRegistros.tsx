@@ -1,8 +1,11 @@
 import { useMemo } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import type { FilaRegistro } from '@ipss/shared';
+import { ErrorApi } from '../api/cliente';
+import { guardarArchivo } from '../comun/descargar';
+import { useToast } from '../comun/Toasts';
 import { Aviso } from '../comun/Aviso';
 import { fechaTexto } from '../comun/fecha-texto';
 import { Icono } from '../comun/Icono';
@@ -12,7 +15,7 @@ import { Boton } from '../comun/ui/Boton';
 import { Campo, Selector } from '../comun/ui/Campo';
 import { Folio, Pill, Tarjeta } from '../comun/ui/Marcas';
 import { obtenerCatalogos, obtenerObjetos } from '../sesiones/api';
-import { listarRegistros, obtenerAnios } from './api';
+import { exportarRegistros, listarRegistros, obtenerAnios } from './api';
 
 export const ESTADOS = [
   { valor: 'ABIERTO', etiqueta: 'Abierto' },
@@ -141,15 +144,47 @@ export function PaginaRegistros() {
     setParametros(new URLSearchParams());
   };
   const total = lista.data?.total ?? 0;
+  const toast = useToast();
+  // Se exporta lo que muestra el listado: mismos filtros y, por eso, mismo total. Solo se quita la paginación.
+  const exportar = useMutation({
+    mutationFn: async () => {
+      const { blob, nombre } = await exportarRegistros(parametros);
+      const nombreFinal = nombre ?? `registros-${parametros.get('anio') ?? 'todos'}.xlsx`;
+      guardarArchivo(blob, nombreFinal);
+      return nombreFinal;
+    },
+    onSuccess: (nombre) => {
+      toast(`Se generó ${nombre} con ${plural(total, 'fila', 'filas')}, las mismas del listado.`);
+    },
+  });
+  const errorExportar = exportar.error === null ? null : exportar.error instanceof ErrorApi ? exportar.error.message : 'No se pudo generar el archivo. Inténtalo de nuevo.';
   const pagina = lista.data?.pagina ?? 1;
   const porPagina = lista.data?.porPagina ?? 10;
   const paginas = Math.max(1, Math.ceil(total / porPagina));
 
   return (
     <section aria-labelledby="titulo-pagina" className="grid gap-4">
-      <h1 id="titulo-pagina" className="text-2xl font-bold text-navy">
-        Registros
-      </h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 id="titulo-pagina" className="text-2xl font-bold text-navy">
+          Registros
+        </h1>
+        <Boton
+          variante="secundario"
+          disabled={total === 0 || exportar.isPending}
+          aria-busy={exportar.isPending}
+          onClick={() => {
+            exportar.mutate();
+          }}
+        >
+          <Icono nombre="tabla" />
+          Exportar a Excel
+        </Boton>
+      </div>
+      {errorExportar !== null && (
+        <Aviso tipo="error" rol="alert">
+          {errorExportar}
+        </Aviso>
+      )}
 
       <Tarjeta className="grid grid-cols-4 gap-3.5 max-[1100px]:grid-cols-2 max-[900px]:grid-cols-1" role="group" aria-label="Filtros">
         <Campo id="f-anio" etiqueta="Año de la sesión">
