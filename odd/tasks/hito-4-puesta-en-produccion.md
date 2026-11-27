@@ -201,7 +201,20 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
   - El mensaje de permiso es genérico, los SQLSTATE tienen nombre y las URL de prueba salen de `URL_API`.
   - La prueba de unicidad usa una transacción que se revierte, sin dejar residuo.
   - Evidencia: `npm test` con 26 reglas, Jest 300 y Vitest 147; lint y tipos en 0. El padre volvió a correrlo con el mismo resultado.
-- [ ] C3b: hallazgos de la revisión en el respaldo (escritor de infraestructura).
+- [x] C3b (commit de esta tarea):
+  - **Salud del servicio.** `salud.sh` lo marca no saludable si el planificador no da señales, si existe `/respaldos/.ultimo-fallo` o si el respaldo más nuevo tiene más de 26 horas. Una instalación nueva tiene 26 horas de gracia desde `/respaldos/.primer-arranque`, que es persistente.
+  - **Reintentos.** El día solo se cierra con un respaldo exitoso. Si falla, se reintenta cada 30 minutos, hasta 3 intentos.
+  - **Sesiones tras restaurar.** `restaurar.sh` revoca todos los refresh tokens vigentes como `ipss_migrador` (UPDATE, sin DELETE) e informa cuántos fueron. Todos los usuarios deben volver a iniciar sesión; quedó en el ADR 0019.
+  - **Pruebas nuevas:**
+    - triggers presentes;
+    - `has_table_privilege` verdadero;
+    - inserción real como `ipss_api` con correlativo e historial, dentro de una transacción que se revierte;
+    - retención en sus bordes;
+    - 5 escenas de salud;
+    - reintento, marca que sobrevive a un reinicio y recuperación.
+  - **Evidencia:**
+    - El padre volvió a correr `npm run test:respaldo` con resultado correcto: 1 refresh token revocado (la sesión anterior responde 401), 33 descargas idénticas, la inserción como `ipss_api`, el respaldo dañado rechazado, retención, salud, reintento, reinicio y recuperación, y 0 volúmenes al terminar.
+    - Según el escritor: `npm test` con 26 reglas, Jest 300 y Vitest 147; lint y tipos en 0.
 
 ## Próximo paso
 

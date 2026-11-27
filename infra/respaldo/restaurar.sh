@@ -8,11 +8,16 @@
 #   3. Restaurar:            docker compose --profile restauracion run --rm restaurar AAAA-MM-DD_HHMM
 #   4. Volver a levantar:    docker compose up -d --wait
 #   5. Probar: iniciar sesión, abrir el panel y descargar una evidencia.
+#      Tras una restauración TODOS los usuarios deben volver a iniciar sesión: el script revoca los
+#      refresh tokens (ver más abajo).
 #
 # Qué hace, en este orden, y se detiene en la primera falla:
 #   - comprueba SHA256SUMS y que el volcado se pueda leer, antes de tocar la base;
 #   - pg_restore con --clean --if-exists --single-transaction como ipss_migrador (dueño del esquema):
 #     todo ocurre en una transacción, así que una falla deja la base como estaba;
+#   - revoca todos los refresh tokens vigentes (UPDATE de revocado_en, nunca DELETE): el volcado trae el
+#     estado de la fecha del respaldo, y un token revocado después (por un cierre de sesión o por
+#     seguridad) volvería a valer; así nadie conserva una sesión que ya se había cerrado;
 #   - desempaqueta las evidencias en el volumen. No borra archivos que no estén en el respaldo.
 #
 # Los triggers (correlativo, protección de cerrados, historiales) y los índices van en la sección
@@ -43,6 +48,10 @@ pg_restore --list "$origen/bd.dump" > /dev/null || fallar "el volcado no se pued
 log "Restaurando la base de datos (una sola transacción)"
 pg_restore --clean --if-exists --single-transaction --exit-on-error --dbname="$PGDATABASE" "$origen/bd.dump" \
   || fallar "pg_restore falló; la base quedó como estaba. ¿Está detenida la API?"
+
+revocados=$(psql --no-psqlrc -At -c "with t as (update refresh_token set revocado_en = now() where revocado_en is null returning 1) select count(*) from t") \
+  || fallar "no se pudieron revocar los refresh tokens; la base ya está restaurada, repita la restauración"
+log "Refresh tokens revocados: $revocados (todos los usuarios deben iniciar sesión de nuevo)"
 
 log "Restaurando las evidencias en $DESTINO_EVIDENCIAS"
 tar -C "$DESTINO_EVIDENCIAS" -xf "$origen/evidencias.tar" || fallar "no se pudieron desempaquetar las evidencias"

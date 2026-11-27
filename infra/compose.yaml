@@ -114,6 +114,7 @@ services:
       TZ: America/Santiago
       HORA_RESPALDO: ${HORA_RESPALDO:-03:00}
       DIAS_RETENCION: ${DIAS_RETENCION:-14}
+      REINTENTO_SEGUNDOS: ${REINTENTO_SEGUNDOS:-1800}
       # Rol dueño del esquema: puede leer todo y así no hace falta un rol nuevo.
       PGHOST: bd
       PGUSER: ipss_migrador
@@ -128,8 +129,8 @@ services:
       bd:
         condition: service_healthy
     healthcheck:
-      # El planificador toca /tmp/latido al menos cada hora y deja /tmp/fallo si el último respaldo falló.
-      test: ["CMD-SHELL", "test -n \"$$(find /tmp/latido -mmin -90)\" && test ! -e /tmp/fallo"]
+      # Mira el estado persistente (edad del respaldo más nuevo, marca de falla) y el pulso del planificador.
+      test: ["CMD", "sh", "/respaldo/salud.sh"]
       interval: 60s
       timeout: 5s
       retries: 3

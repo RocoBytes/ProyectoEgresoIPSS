@@ -19,15 +19,18 @@ const CLAVE = 'Demo-2026';
 
 const dormir = (ms) => new Promise((alResolver) => setTimeout(alResolver, ms));
 
-function puertoLibre() {
-  return new Promise((alResolver, alFallar) => {
-    const servidor = createServer();
-    servidor.once('error', alFallar);
-    servidor.listen(0, '127.0.0.1', () => {
-      const { port } = servidor.address();
-      servidor.close(() => alResolver(port));
+// Se evita el rango efímero del sistema (`listen(0)`), donde otro proceso puede tomar el puerto antes de que lo publique Docker.
+async function puertoLibre() {
+  for (let intento = 0; intento < 50; intento += 1) {
+    const candidato = 20000 + Math.floor(Math.random() * 10000);
+    const libre = await new Promise((alResolver) => {
+      const servidor = createServer();
+      servidor.once('error', () => alResolver(false));
+      servidor.listen(candidato, '0.0.0.0', () => servidor.close(() => alResolver(true)));
     });
-  });
+    if (libre) return candidato;
+  }
+  throw new Error('No encontré un puerto libre entre 20000 y 29999');
 }
 
 const secreto = (bytes) => randomBytes(bytes).toString('hex');
@@ -76,7 +79,10 @@ function psql(sql) {
 /** Todo lo que la restauración debe devolver igual: contenido de cada tabla, permisos, triggers y evidencias. */
 function fotografiar() {
   const tablas = psql("select tablename from pg_tables where schemaname = 'public' order by 1").split('\n');
-  const contenido = psql(tablas.map((t) => `select '${t}', count(*), md5(coalesce(string_agg(x::text, '|' order by x::text), '')) from "${t}" x`).join(' union all '));
+  // La restauración revoca a propósito los refresh_token vigentes; por eso su md5 deja fuera `revocado_en`
+  // y se comprueba aparte que ninguno quede vigente.
+  const fila = (t) => (t === 'refresh_token' ? '(x.id, x.usuario_id, x.hash, x.familia, x.sesion_iniciada_en, x.expira_en, x.creado_en)::text' : 'x::text');
+  const contenido = psql(tablas.map((t) => `select '${t}', count(*), md5(coalesce(string_agg(${fila(t)}, '|' order by ${fila(t)}), '')) from "${t}" x`).join(' union all '));
   return {
     tablas: contenido.split('\n'),
     permisos: psql("select relname, relacl::text from pg_class where relnamespace = 'public'::regnamespace order by 1").split('\n'),
@@ -139,6 +145,27 @@ async function esperarRespaldo() {
   throw new Error('El planificador no respaldó en 200 s');
 }
 
+/** Hora HH:MM de Santiago del minuto en curso: abre la ventana del planificador de inmediato. */
+function horaActual() {
+  const ahora = new Date(Math.floor(Date.now() / 60_000) * 60_000);
+  return ahora.toLocaleTimeString('en-GB', { timeZone: 'America/Santiago', hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+/** Ejecuta un script de sh dentro del contenedor `respaldo` y devuelve su salida. */
+function enRespaldo(script, variables = {}) {
+  const env = Object.entries(variables).flatMap(([clave, valor]) => ['-e', `${clave}=${valor}`]);
+  return compose(['exec', '-T', ...env, 'respaldo', 'sh', '-c', script], { permitirFallo: true });
+}
+
+async function esperarEnRegistro(patron, segundos, mensaje) {
+  for (let i = 0; i < segundos / 3; i += 1) {
+    const registro = compose(['logs', '--no-log-prefix', 'respaldo']).stdout;
+    if (patron.test(registro)) return registro;
+    await dormir(3000);
+  }
+  throw new Error(`${mensaje} (en ${String(segundos)} s)\n${compose(['logs', '--no-log-prefix', '--tail', '30', 'respaldo']).stdout}`);
+}
+
 function volumenesDelProyecto() {
   const lista = ejecutar('docker', ['volume', 'ls', '-q', '--filter', `label=com.docker.compose.project=${PROYECTO}`]).stdout;
   return lista.split('\n').filter(Boolean);
@@ -162,6 +189,9 @@ try {
 
   // Se fotografía después de ingresar y descargar: el ingreso escribe en la base y no debe diferir luego.
   const antes = fotografiar();
+  const cookieAntigua = cookie;
+  const vigentesAntes = Number(psql('select count(*) from refresh_token where revocado_en is null'));
+  if (vigentesAntes < 1) throw new Error('Antes del respaldo debía haber al menos un refresh token vigente');
   const registrosAntes = antes.tablas.find((fila) => fila.startsWith('registro|'));
   console.log(`   registro: ${String(registrosAntes)}`);
 
@@ -173,6 +203,15 @@ try {
   console.log(registro.split('\n').filter((linea) => /Planificador|Próximo|Respaldo|Base de datos|Evidencias/.test(linea)).map((linea) => `   ${linea}`).join('\n'));
   const nombre = directorio.split('/').pop();
   console.log(compose(['exec', '-T', 'respaldo', 'sh', '-c', `ls -l ${directorio} && cat ${directorio}/manifiesto.txt`]).stdout);
+
+  paso('Un reinicio dentro de la ventana no repite el respaldo de hoy');
+  entorno.HORA_RESPALDO = horaActual();
+  compose(['up', '-d', '--wait', '--force-recreate', '--no-deps', 'respaldo']);
+  const trasReinicio = await esperarEnRegistro(/Ya hay un respaldo de hoy/, 30, 'El planificador no reconoció el respaldo de hoy');
+  if (/comienza/.test(trasReinicio)) throw new Error('El reinicio dentro de la ventana repitió el respaldo');
+  const cuantos = enRespaldo('ls -d /respaldos/20??-??-??_???? | wc -l').stdout.trim();
+  if (cuantos !== '1') throw new Error(`Se esperaba 1 respaldo y hay ${cuantos}`);
+  console.log('   el planificador vio el respaldo de hoy y no lo repitió (1 directorio)');
 
   paso('Destruyendo la base y las evidencias (se conserva el volumen de respaldos)');
   compose(['down']);
@@ -190,6 +229,8 @@ try {
   compose(['stop', 'api']);
   const restauracion = compose(['--profile', 'restauracion', 'run', '--rm', '--no-TTY', 'restaurar', nombre]);
   console.log(restauracion.stdout.split('\n').map((linea) => `   ${linea}`).join('\n'));
+  const revocados = /Refresh tokens revocados: (\d+)/.exec(restauracion.stdout);
+  if (revocados?.[1] !== String(vigentesAntes)) throw new Error(`Se esperaba revocar ${String(vigentesAntes)} tokens y el script informó ${String(revocados?.[1])}`);
   compose(['up', '-d', '--wait']);
 
   paso('Comparando');
@@ -197,6 +238,14 @@ try {
   const diferencias = compararFotos(antes, despues);
   if (diferencias.length > 0) throw new Error(`La base restaurada difiere:\n${diferencias.join('\n')}`);
   console.log(`   ${String(antes.tablas.length)} tablas con conteo y md5 idénticos, permisos, triggers y evidencias idénticos`);
+
+  // Antes de volver a ingresar: el ingreso de la prueba crearía un token vigente nuevo.
+  // Las sesiones cerradas después del respaldo no deben revivir: la restauración revoca todo token vigente.
+  const vigentes = psql('select count(*) from refresh_token where revocado_en is null');
+  if (vigentes !== '0') throw new Error(`Tras restaurar quedaron ${vigentes} refresh tokens vigentes`);
+  const viejo = await globalThis.fetch(`${base}/api/acceso/yo`, { headers: { cookie: cookieAntigua } });
+  if (viejo.status !== 401) throw new Error(`La sesión anterior a la restauración sigue válida (${String(viejo.status)})`);
+  console.log(`   ${String(vigentesAntes)} refresh tokens revocados; la sesión anterior responde 401`);
 
   cookie = await ingresar();
   const hashesDespues = await descargarTodas(ids, join(temporal, 'despues'), cookie);
@@ -212,9 +261,25 @@ try {
   if ((await panel.text()) !== panelAntes) throw new Error('El panel devuelve cifras distintas tras restaurar');
   console.log('   ingreso y panel funcionan, con las mismas cifras');
 
-  // Una escritura con el rol ipss_api demuestra que los permisos y los triggers de la base restaurada siguen vivos.
-  const escribe = compose(['exec', '-T', 'bd', 'psql', '-U', 'postgres', '-d', 'ipss', '-At', '-c', "set role ipss_api; select count(*) from contador_correlativo; select has_table_privilege('ipss_api', 'registro', 'INSERT')"]);
-  console.log(`   ipss_api: ${escribe.stdout.trim().split('\n').join(' / ')}`);
+  // Triggers y permisos de verdad: se inserta un registro como ipss_api dentro de una transacción que se deshace.
+  for (const nombreTrigger of ['registro_correlativo', 'registro_proteger', 'registro_auditar', 'registro_validar_objeto']) {
+    if (!despues.triggers.some((t) => t.startsWith(`${nombreTrigger}|`))) throw new Error(`Falta el trigger ${nombreTrigger} tras restaurar`);
+  }
+  if (psql("select has_table_privilege('ipss_api', 'registro', 'INSERT')") !== 't') throw new Error('ipss_api perdió INSERT sobre registro');
+  const escritura = compose(['exec', '-T', 'bd', 'psql', '-U', 'postgres', '-d', 'ipss', '-q', '-At', '-v', 'ON_ERROR_STOP=1'], {
+    entrada: `begin;
+set local role ipss_api;
+insert into registro (sesion_id, carrera_id, nivel_impacto, asignatura_id, version_malla_id, recurso, descripcion, fecha_comprometida, actualizado_por)
+  select sesion_id, carrera_id, nivel_impacto, asignatura_id, version_malla_id, recurso, '__prueba_respaldo__', fecha_comprometida, actualizado_por from registro limit 1;
+select correlativo from registro where descripcion = '__prueba_respaldo__';
+select count(*) from historial_estado h join registro r on r.id = h.registro_id where r.descripcion = '__prueba_respaldo__';
+rollback;
+`,
+  }).stdout.trim().split('\n');
+  if (!/^R-\d{4}-\d{3,}$/.test(escritura[0] ?? '')) throw new Error(`El trigger no asignó el correlativo: ${String(escritura[0])}`);
+  if (escritura[1] !== '1') throw new Error(`El trigger de auditoría no escribió el historial (filas: ${String(escritura[1])})`);
+  if (psql("select count(*) from registro where descripcion = '__prueba_respaldo__'") !== '0') throw new Error('La inserción de prueba no se deshizo');
+  console.log(`   ipss_api insertó un registro (${String(escritura[0])}, historial escrito) y se deshizo; triggers y permisos vivos`);
 
   paso('Un respaldo dañado no debe tocar la base');
   // La copia se hace desde `respaldo`, que es quien tiene el volumen en escritura; `restaurar` lo monta de solo lectura.
@@ -229,6 +294,64 @@ try {
   if (trasIntento.length > 0) throw new Error(`El intento con el respaldo dañado cambió la base:\n${trasIntento.join('\n')}`);
   console.log(`   código ${String(intento.status)}, "${intento.stderr.trim().split('\n').pop()}"`);
   console.log('   la base quedó igual (mismos conteos y md5)');
+
+  paso('Retención y salud con directorios de prueba (dentro del volumen de respaldos)');
+  const retencion = enRespaldo(`
+    set -eu
+    D=/respaldos/prueba-retencion; rm -rf $D; mkdir $D; now=$(date +%s)
+    mk() { mkdir $D/$1; touch -d "@$((now - $2))" $D/$1; }
+    mk 2020-01-01_0100 $((14 * 86400 + 3600))   # 14 días y 1 hora: se borra
+    mk 2020-01-02_0100 $((13 * 86400 + 82800))  # 13 días y 23 horas: se conserva
+    mk 2020-01-03_0100 $((20 * 86400))          # se borra
+    mk 2020-01-04_0100 60                       # se conserva
+    mk otros $((30 * 86400))                    # no tiene nombre de respaldo: se conserva
+    touch -d "@$((now - 30 * 86400))" $D/2020-01-05_0100  # archivo, no directorio: se conserva
+    sh /respaldo/respaldar.sh > /dev/null
+    ls -A $D
+  `, { DIRECTORIO_RESPALDOS: '/respaldos/prueba-retencion', DIAS_RETENCION: '14' });
+  if (retencion.status !== 0) throw new Error(`La prueba de retención falló: ${retencion.stderr}`);
+  // El respaldo recién hecho también está en el directorio; solo se mira lo que sembró la prueba.
+  const quedan = retencion.stdout.trim().split('\n').filter((n) => n.startsWith('2020-') || n === 'otros').sort();
+  const esperados = ['2020-01-02_0100', '2020-01-04_0100', '2020-01-05_0100', 'otros'];
+  if (JSON.stringify(quedan) !== JSON.stringify(esperados)) throw new Error(`Retención: quedaron ${quedan.join(', ')} y se esperaba ${esperados.join(', ')}`);
+  console.log('   retención de 14 días: borró 14d1h y 20d; conservó 13d23h, 60 s, un archivo y un directorio ajeno');
+
+  const escenas = [
+    ['instalación nueva (sin respaldos)', 'touch $D/.primer-arranque', 0],
+    ['sin respaldos a las 30 h del primer arranque', 'touch -d "@$((now - 108000))" $D/.primer-arranque', 1],
+    ['respaldo de 2 h', 'mk 2020-01-01_0100 7200', 0],
+    ['respaldo de 30 h', 'mk 2020-01-01_0100 108000', 1],
+    ['respaldo reciente con marca de falla', 'mk 2020-01-01_0100 7200; echo falla > $D/.ultimo-fallo', 1],
+  ];
+  for (const [descripcion, preparar, esperado] of escenas) {
+    const salida = enRespaldo(`D=/respaldos/prueba-salud; rm -rf $D; mkdir $D; now=$(date +%s); mk() { mkdir $D/$1; touch -d "@$((now - $2))" $D/$1; }; ${preparar}; sh /respaldo/salud.sh; echo "rc=$?"`, { DIRECTORIO_RESPALDOS: '/respaldos/prueba-salud' });
+    const rc = /rc=(\d+)/.exec(salida.stdout)?.[1];
+    if (rc !== String(esperado)) throw new Error(`Salud "${descripcion}": se esperaba ${String(esperado)} y salió ${String(rc)}\n${salida.stdout}`);
+  }
+  console.log(`   salud.sh: ${String(escenas.length)} escenas con el resultado esperado`);
+
+  paso('Falla del respaldo: reintento, marca persistente, reinicio y recuperación');
+  enRespaldo('rm -rf /respaldos/20??-??-??_???? /respaldos/prueba-* /respaldos/.ultimo-fallo');
+  compose(['stop', 'bd']);
+  entorno.HORA_RESPALDO = horaActual();
+  entorno.REINTENTO_SEGUNDOS = '20';
+  compose(['up', '-d', '--no-deps', '--force-recreate', 'respaldo']);
+  await esperarEnRegistro(/Intento 2 de 3/, 90, 'El planificador no reintentó tras la falla');
+  const enFalla = enRespaldo('sh /respaldo/salud.sh');
+  if (enFalla.status === 0 || !/falló/.test(enFalla.stdout)) throw new Error(`Con el respaldo fallando debía estar no saludable: ${enFalla.stdout}`);
+  console.log(`   reintentó a los 20 s; salud: "${enFalla.stdout.trim()}"`);
+
+  compose(['restart', 'respaldo']);
+  await dormir(3000);
+  const trasReiniciar = enRespaldo('sh /respaldo/salud.sh');
+  if (trasReiniciar.status === 0 || !/falló/.test(trasReiniciar.stdout)) throw new Error(`La marca de falla no sobrevivió al reinicio: ${trasReiniciar.stdout}`);
+  console.log('   tras reiniciar el contenedor sigue no saludable (la marca vive en el volumen)');
+
+  compose(['up', '-d', '--wait', '--no-deps', 'bd']);
+  await esperarEnRegistro(/Respaldo completo/, 90, 'El planificador no se recuperó al volver la base');
+  const sana = enRespaldo('sh /respaldo/salud.sh');
+  if (sana.status !== 0) throw new Error(`Tras recuperarse debía estar sano: ${sana.stdout}`);
+  console.log(`   al volver la base respaldó y quedó sano ("${sana.stdout.trim()}")`);
 
   fallo = false;
   console.log('\nPRUEBA DE RESTAURACIÓN: correcta');

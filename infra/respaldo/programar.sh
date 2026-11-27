@@ -5,10 +5,18 @@
 # mínimas (ver compose.yaml) y se ajusta solo a los cambios de horario de Santiago: en vez de dormir
 # 24 horas de una vez, duerme como máximo una hora y vuelve a calcular cuánto falta con el reloj local.
 #
-# Variables: HORA_RESPALDO (HH:MM en hora de Santiago, por defecto 03:00) y TZ, que fija Compose.
+# Un respaldo fallido se reintenta el mismo día (MAX_INTENTOS veces, cada REINTENTO_SEGUNDOS). Solo un
+# respaldo exitoso cierra el día. El estado que debe sobrevivir a un reinicio (marca de falla, primer
+# arranque) vive en el volumen de respaldos, no en /tmp: ver salud.sh.
+#
+# Variables: HORA_RESPALDO (HH:MM en hora de Santiago, por defecto 03:00), REINTENTO_SEGUNDOS (1800),
+# MAX_INTENTOS (3) y TZ, que fija Compose.
 set -eu
 
 HORA="${HORA_RESPALDO:-03:00}"
+DESTINO="${DIRECTORIO_RESPALDOS:-/respaldos}"
+REINTENTO="${REINTENTO_SEGUNDOS:-1800}"
+MAX_INTENTOS="${MAX_INTENTOS:-3}"
 # Si el contenedor arranca dentro de esta ventana (en segundos) tras la hora fijada, respalda igual.
 VENTANA=300
 
@@ -17,6 +25,9 @@ log() { echo "$(date '+%Y-%m-%d %H:%M:%S %Z') [respaldo] $*"; }
 case "$HORA" in
   [01][0-9]:[0-5][0-9] | 2[0-3]:[0-5][0-9]) ;;
   *) log "HORA_RESPALDO debe tener la forma HH:MM (24 horas) y es '$HORA'" >&2; exit 1 ;;
+esac
+case "$REINTENTO$MAX_INTENTOS" in
+  '' | *[!0-9]*) log "REINTENTO_SEGUNDOS y MAX_INTENTOS deben ser enteros" >&2; exit 1 ;;
 esac
 
 # `$((08))` falla en sh porque lee octal: se quita el cero inicial.
@@ -32,36 +43,57 @@ objetivo=$(( $(sin_cero "${HORA%:*}") * 3600 + $(sin_cero "${HORA#*:}") * 60 ))
 # Como proceso 1, sh ignora SIGTERM salvo que lo atrape; sin esto `docker stop` esperaría 10 s y mataría el contenedor.
 trap 'log "Recibí la señal de término, salgo"; exit 0' TERM INT
 
-# Lo lee el healthcheck: si el bucle se detiene o el último respaldo falló, el servicio figura como no saludable.
+# Instalación nueva: salud.sh da un plazo desde el primer arranque antes de exigir un respaldo.
+[ -e "$DESTINO/.primer-arranque" ] || touch "$DESTINO/.primer-arranque"
+# Lo lee salud.sh: si el bucle se detiene, el servicio figura como no saludable.
 touch /tmp/latido
-ultimo=""
+
+ultimo=""          # día cuya ocurrencia ya se abrió
+pendiente=no       # hay un respaldo por hacer (o por reintentar)
+intentos=0
+siguiente=0        # época a partir de la cual toca el próximo intento
 # Un reinicio dentro de la ventana (actualización, `docker compose up`) no debe repetir el respaldo que ya se hizo hoy.
-if ls -d "${DIRECTORIO_RESPALDOS:-/respaldos}/$(date +%F)"_[0-9][0-9][0-9][0-9] > /dev/null 2>&1; then
+if ls -d "$DESTINO/$(date +%F)"_[0-9][0-9][0-9][0-9] > /dev/null 2>&1; then
   ultimo=$(date +%F)
+  log "Ya hay un respaldo de hoy; no se repite"
 fi
 log "Planificador iniciado: un respaldo al día a las $HORA (zona ${TZ:-UTC}), se conservan ${DIAS_RETENCION:-14} días"
 
 while :; do
   ahora=$(segundos_del_dia)
+  epoca=$(date +%s)
   hoy=$(date +%F)
   desde=$(( (ahora - objetivo + 86400) % 86400 ))
 
+  # Se abre la ocurrencia del día al entrar en la ventana.
   if [ "$desde" -lt "$VENTANA" ] && [ "$ultimo" != "$hoy" ]; then
-    ultimo="$hoy"
+    ultimo="$hoy"; pendiente=si; intentos=0; siguiente=0
+  fi
+
+  if [ "$pendiente" = si ] && [ "$epoca" -ge "$siguiente" ]; then
+    intentos=$((intentos + 1))
+    log "Intento $intentos de $MAX_INTENTOS"
     if sh /respaldo/respaldar.sh; then
-      rm -f /tmp/fallo
+      pendiente=no
+    elif [ "$intentos" -ge "$MAX_INTENTOS" ]; then
+      pendiente=no
+      log "El respaldo falló $intentos veces; se reintenta mañana. El servicio queda no saludable hasta el próximo éxito." >&2
     else
-      touch /tmp/fallo
-      log "El respaldo falló; se reintenta mañana. Revise los mensajes anteriores." >&2
+      siguiente=$(( $(date +%s) + REINTENTO ))
+      log "El respaldo falló; reintento en $REINTENTO s" >&2
     fi
     touch /tmp/latido
     continue
   fi
 
   falta=$(( (objetivo - ahora + 86400) % 86400 ))
-  # Si ya se respaldó dentro de la ventana, `falta` puede ser 0 solo a las HH:MM:00 exactas: se cuenta un día completo.
+  # Si ya se abrió la ocurrencia de hoy, `falta` es casi un día; a las HH:MM:00 exactas valdría 0 y se cuenta el día completo.
   [ "$falta" -eq 0 ] && falta=86400
   espera=$falta
+  if [ "$pendiente" = si ]; then
+    espera=$((siguiente - epoca))
+    [ "$espera" -lt 1 ] && espera=1
+  fi
   [ "$espera" -gt 3600 ] && espera=3600
   log "Próximo respaldo a las $HORA, faltan $falta s; vuelvo a revisar en $espera s"
   touch /tmp/latido

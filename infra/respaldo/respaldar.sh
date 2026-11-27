@@ -33,13 +33,18 @@ final="$DESTINO/$nombre"
 temporal="$DESTINO/.en-curso-$nombre"
 [ ! -e "$final" ] || fallar "ya existe $final; espere un minuto y repita"
 
+# Una falla deja .ultimo-fallo en el volumen (lo lee salud.sh y sobrevive a un reinicio); un éxito la quita.
+terminado=no
+limpiar() {
+  [ "$terminado" = si ] && return
+  rm -rf "$temporal"
+  echo "$(date '+%Y-%m-%d %H:%M:%S %Z') respaldo $nombre" > "$DESTINO/.ultimo-fallo" || true
+}
+trap limpiar EXIT
+
 # Restos de un respaldo anterior que murió a medias (corte de luz, contenedor detenido).
 rm -rf "$DESTINO"/.en-curso-*
 mkdir "$temporal"
-
-terminado=no
-limpiar() { [ "$terminado" = si ] || rm -rf "$temporal"; }
-trap limpiar EXIT
 
 log "Respaldo $nombre: comienza"
 
@@ -74,6 +79,7 @@ log "Evidencias empaquetadas ($(du -k "$temporal/evidencias.tar" | cut -f1) KiB)
 
 mv "$temporal" "$final"
 terminado=si
+rm -f "$DESTINO/.ultimo-fallo"
 log "Respaldo completo: $final"
 
 # Retención: se borran los directorios con nombre de respaldo más viejos que DIAS días.
