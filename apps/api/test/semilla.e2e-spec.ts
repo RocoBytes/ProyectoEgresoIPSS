@@ -1,7 +1,11 @@
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Client } from 'pg';
 import { ContrasenasService } from '../src/acceso/contrasenas.service';
 import { CARRERAS_EJEMPLO, CLAVE_EJEMPLO, USUARIOS_EJEMPLO } from '../src/cli/datos-ejemplo';
+import { MALLAS_EJEMPLO, SESIONES_EJEMPLO, USUARIOS_INACTIVOS_EJEMPLO } from '../src/cli/datos-sesiones-ejemplo';
 import { sembrar } from '../src/cli/semilla';
 import { PrismaClient } from '../src/generated/prisma/client';
 import { URL_API, conMigrador } from './ayudas/acceso';
@@ -17,11 +21,42 @@ async function contar(cliente: Client): Promise<Record<string, number>> {
 describe('semilla de desarrollo (contra la base de pruebas, como ipss_api)', () => {
   let prisma: PrismaClient;
 
-  beforeAll(() => {
+  let directorio: string;
+  beforeAll(async () => {
+    // Los archivos de relleno van a un directorio propio de la prueba, no al de desarrollo.
+    directorio = await mkdtemp(join(tmpdir(), 'ipss-semilla-'));
+    process.env['DIRECTORIO_EVIDENCIAS'] = directorio;
     prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: URL_API }) });
   });
   afterAll(async () => {
     await prisma.$disconnect();
+    delete process.env['DIRECTORIO_EVIDENCIAS'];
+    await rm(directorio, { recursive: true, force: true });
+  });
+
+  it('siembra las 11 sesiones, los 19 registros y las 10 mallas del prototipo una sola vez', async () => {
+    const primera = await sembrar(prisma);
+    const segunda = await sembrar(prisma);
+    expect(SESIONES_EJEMPLO).toHaveLength(11);
+    expect(SESIONES_EJEMPLO.reduce((n, x) => n + x.registros.length, 0)).toBe(19);
+    expect(MALLAS_EJEMPLO).toHaveLength(10);
+    // Si otra suite ya sembró esta base, la primera corrida no agrega nada; en ambos casos la segunda no cambia nada.
+    expect(segunda.datosDelPrototipo).toEqual({ usuariosInactivos: 0, mallas: 0, sesiones: 0, registros: 0 });
+    expect([0, 11]).toContain(primera.datosDelPrototipo.sesiones);
+    await conMigrador(async (c) => {
+      const instancias = SESIONES_EJEMPLO.map((x) => x.instancia);
+      const r = await c.query<{ sesiones: string; registros: string; cerrados: string; anulados: string }>(
+        `SELECT count(DISTINCT s.id) AS sesiones, count(r.id) AS registros,
+                count(r.id) FILTER (WHERE r.estado = 'CERRADO') AS cerrados, count(r.id) FILTER (WHERE r.estado = 'ANULADO') AS anulados
+           FROM sesion s JOIN registro r ON r.sesion_id = s.id WHERE s.instancia = ANY($1)`, [instancias]);
+      expect(r.rows[0]).toEqual({ sesiones: '11', registros: '19', cerrados: '9', anulados: '1' });
+      const inactivos = await c.query<{ activo: boolean }>('SELECT activo FROM usuario WHERE correo = ANY($1)', [USUARIOS_INACTIVOS_EJEMPLO.map((u) => u.correo)]);
+      expect(inactivos.rows).toHaveLength(2);
+      expect(inactivos.rows.every((u) => !u.activo)).toBe(true);
+      const mallas = await c.query<{ n: string }>("SELECT count(*) AS n FROM version_malla WHERE vigente_desde IS NOT NULL AND carrera_id IN (SELECT id FROM carrera WHERE nombre = ANY($1))", [MALLAS_EJEMPLO.map((m) => m.carrera)]);
+      expect(Number(mallas.rows[0]?.n)).toBeGreaterThanOrEqual(10);
+    });
+    if (primera.datosDelPrototipo.sesiones === 11) expect((await readdir(directorio)).filter((n) => n !== '.entrantes').length).toBeGreaterThan(30);
   });
 
   it('cargada dos veces, la segunda no cambia ninguna tabla', async () => {

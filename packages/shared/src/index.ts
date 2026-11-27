@@ -15,3 +15,16 @@ export type {
   Rol,
   UsuarioActual,
 } from './acceso.js';
+export type { RespuestaCatalogos, RespuestaObjetosCarrera } from './catalogos.js';
+export type { DatosSesionNueva, EvidenciaResumen, NivelImpacto, RegistroCreado, RegistroNuevo, RespuestaSesionCreada } from './sesiones.js';
+export type {
+  DetalleRegistro,
+  EdicionRegistro,
+  EntradaHistorial,
+  FilaRegistro,
+  FiltroEstado,
+  OtroRegistroDeSesion,
+  RespuestaAnios,
+  RespuestaEdicion,
+  RespuestaListadoRegistros,
+} from './registros.js';

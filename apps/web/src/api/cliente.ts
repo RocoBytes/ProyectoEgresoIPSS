@@ -71,8 +71,10 @@ export function renovarSesion(): Promise<boolean> {
 }
 
 export interface OpcionesSolicitud {
-  metodo?: 'GET' | 'POST';
+  metodo?: 'GET' | 'POST' | 'PATCH';
   cuerpo?: unknown;
+  /** Cuerpo multipart; el navegador fija el Content-Type con su separador. */
+  formulario?: FormData;
   /** Ante un 401, renovar y repetir una vez. Por defecto, todo lo que no es /api/acceso/*. */
   renovarAlExpirar?: boolean;
   /** Si tras reintentar sigue el 401, avisar a la aplicación. Por defecto igual que `renovarAlExpirar`. */
@@ -87,7 +89,7 @@ function enviar(ruta: string, opciones: OpcionesSolicitud): Promise<Response> {
     headers: tieneCuerpo
       ? { Accept: 'application/json', 'Content-Type': 'application/json' }
       : { Accept: 'application/json' },
-    body: tieneCuerpo ? JSON.stringify(opciones.cuerpo) : undefined,
+    body: opciones.formulario ?? (tieneCuerpo ? JSON.stringify(opciones.cuerpo) : undefined),
   });
 }
 

@@ -1,3 +1,4 @@
+import { DIRECTORIO_EVIDENCIAS_PRUEBAS } from './ayudas/acceso';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import type { RespuestaSalud } from '@ipss/shared';
@@ -10,7 +11,7 @@ const URL_BD_PRUEBAS = 'postgresql://ipss_api:api_dev@127.0.0.1:55433/ipss';
 const URL_BD_INALCANZABLE = 'postgresql://ipss_api:api_dev@127.0.0.1:1/ipss';
 
 async function levantar(urlBaseDeDatos: string): Promise<{ app: NestExpressApplication; url: string }> {
-  const config: Configuracion = { urlBaseDeDatos, puerto: 0, host: '127.0.0.1', saltosProxy: undefined, jwtSecreto: 'secreto-de-pruebas-de-al-menos-32-caracteres' };
+  const config: Configuracion = { urlBaseDeDatos, puerto: 0, host: '127.0.0.1', saltosProxy: undefined, jwtSecreto: 'secreto-de-pruebas-de-al-menos-32-caracteres', directorioEvidencias: DIRECTORIO_EVIDENCIAS_PRUEBAS };
   const modulo = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(CONFIGURACION)
     .useValue(config)

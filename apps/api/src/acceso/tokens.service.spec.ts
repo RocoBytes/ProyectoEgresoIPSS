@@ -14,7 +14,7 @@ class RelojControlable implements Reloj {
 }
 
 const SECRETO = 'secreto-de-pruebas-de-al-menos-32-caracteres';
-const config: Configuracion = { urlBaseDeDatos: 'x', puerto: 0, host: '127.0.0.1', saltosProxy: undefined, jwtSecreto: SECRETO };
+const config: Configuracion = { urlBaseDeDatos: 'x', puerto: 0, host: '127.0.0.1', saltosProxy: undefined, jwtSecreto: SECRETO, directorioEvidencias: 'x' };
 const usuario = { id: '6f1c1e0e-3b0f-4f0e-9d5e-0a1b2c3d4e5f', rol: 'DIRECTOR_CARRERA' } as const;
 const clave = (secreto: string): Uint8Array => new TextEncoder().encode(secreto);
 const LEJOS = new Date('2026-11-27T00:00:00.000Z');

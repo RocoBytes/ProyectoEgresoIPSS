@@ -13,8 +13,9 @@
 
 	# El volumen de evidencias no se monta en este contenedor: los archivos solo salen por la API.
 	handle /api/* {
+		# Igual al tope de 100 MB del plan gratuito de Cloudflare y al límite propio de la API.
 		request_body {
-			max_size 25MB
+			max_size 100MB
 		}
 		reverse_proxy api:3000
 	}

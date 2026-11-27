@@ -38,11 +38,12 @@ describe('RutaProtegida', () => {
 
   it('con sesión muestra la estructura y el contenido de la ruta', async () => {
     conSesion('DIRECTOR_SECTORIAL');
-    montar(rutasApp, '/registros');
-    expect(await screen.findByRole('heading', { name: 'Registros' })).toBeDefined();
+    // Mallas sigue siendo un marcador; Registros ya tiene su pantalla y sus propias pruebas.
+    montar(rutasApp, '/mallas');
+    expect(await screen.findByRole('heading', { name: 'Mallas' })).toBeDefined();
     expect(screen.getByText('En construcción: llega en el próximo hito.')).toBeDefined();
     const nav = screen.getByRole('navigation', { name: 'Secciones' });
-    expect(nav.querySelector('[aria-current="page"]')?.textContent).toBe('Registros');
+    expect(nav.querySelector('[aria-current="page"]')?.textContent).toBe('Mallas');
   });
 
   it('la ruta /estado sigue siendo pública', async () => {

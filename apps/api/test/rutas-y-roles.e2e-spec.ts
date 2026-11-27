@@ -4,7 +4,7 @@ import { Test } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 import { CLAVE_PUBLICA, CLAVE_ROLES, Publica, Roles, TODOS_LOS_ROLES } from '../src/acceso/roles';
 import { CONFIGURACION, type Configuracion } from '../src/configuracion';
-import { conMigrador, crearUsuario, ingresar, levantarApp, pedir, sesionDe, cookiesDe, JWT_SECRETO_PRUEBAS, URL_API, type AppDePruebas, type RolPrueba } from './ayudas/acceso';
+import { conMigrador, crearUsuario, ingresar, levantarApp, pedir, sesionDe, cookiesDe, JWT_SECRETO_PRUEBAS, URL_API, type AppDePruebas, type RolPrueba, DIRECTORIO_EVIDENCIAS_PRUEBAS } from './ayudas/acceso';
 
 // Controlador solo de pruebas, registrado únicamente en este módulo de testing.
 @Controller('pruebas-roles')
@@ -40,7 +40,7 @@ class ControladorRoles {
   }
 }
 
-const config: Configuracion = { urlBaseDeDatos: URL_API, puerto: 0, host: '127.0.0.1', saltosProxy: 1, jwtSecreto: JWT_SECRETO_PRUEBAS };
+const config: Configuracion = { urlBaseDeDatos: URL_API, puerto: 0, host: '127.0.0.1', saltosProxy: 1, jwtSecreto: JWT_SECRETO_PRUEBAS, directorioEvidencias: DIRECTORIO_EVIDENCIAS_PRUEBAS };
 
 // Lista los handlers HTTP de los controladores del módulo que no declaran @Roles ni @Publica.
 async function handlersSinDeclarar(extra: Type[] = []): Promise<{ total: number; sinDeclarar: string[] }> {

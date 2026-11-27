@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { Type } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
@@ -14,6 +16,8 @@ import { CONFIGURACION, type Configuracion } from '../../src/configuracion';
 // migrador porque la API no tiene INSERT sobre sector ni carrera.
 export const URL_API = 'postgresql://ipss_api:api_dev@127.0.0.1:55433/ipss';
 export const URL_MIGRADOR = 'postgresql://ipss_migrador:migrador_dev@127.0.0.1:55433/ipss';
+// Directorio de evidencias de las pruebas e2e: fuera del repositorio y propio de las pruebas.
+export const DIRECTORIO_EVIDENCIAS_PRUEBAS = join(tmpdir(), 'ipss-evidencias-pruebas');
 export const CLAVE_PRUEBAS = 'Clave-de-pruebas-1';
 export const JWT_SECRETO_PRUEBAS = 'secreto-de-pruebas-de-al-menos-32-caracteres';
 
@@ -37,9 +41,9 @@ export interface AppDePruebas {
 }
 
 /** Levanta la app real con `trust proxy` en 1 (como detrás de Caddy) y el reloj controlable. */
-export async function levantarApp(controladores: Type[] = []): Promise<AppDePruebas> {
+export async function levantarApp(controladores: Type[] = [], directorioEvidencias = DIRECTORIO_EVIDENCIAS_PRUEBAS): Promise<AppDePruebas> {
   const reloj = new RelojControlable();
-  const config: Configuracion = { urlBaseDeDatos: URL_API, puerto: 0, host: '127.0.0.1', saltosProxy: 1, jwtSecreto: JWT_SECRETO_PRUEBAS };
+  const config: Configuracion = { urlBaseDeDatos: URL_API, puerto: 0, host: '127.0.0.1', saltosProxy: 1, jwtSecreto: JWT_SECRETO_PRUEBAS, directorioEvidencias };
   const modulo = await Test.createTestingModule({ imports: [AppModule], controllers: controladores })
     .overrideProvider(CONFIGURACION)
     .useValue(config)
