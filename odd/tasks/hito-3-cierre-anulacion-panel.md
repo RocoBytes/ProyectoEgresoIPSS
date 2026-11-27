@@ -53,7 +53,7 @@ Fuera de alcance: mallas (RF-06), exportación (RF-10), catálogos reales, usuar
 - [x] **P2 API del panel.** Módulo `reportes` con indicadores, dona, anillos, series por mes y por año, canal, nivel, sector o carrera y últimas 5 sesiones. Ruta: delegada (mismo escritor).
 - [x] **P3 Web: cerrar y anular.** Botones en el detalle, `DialogoCerrar` y `DialogoAnular` con textos y validaciones del prototipo; la zona de archivo pasa a `comun/`. Ruta: delegada (escritor de la web).
 - [x] **P4 Web: panel.** Filtros en la URL, indicadores, gráficos, estados vacíos, últimas sesiones y clic hacia el listado. Ruta: delegada (mismo escritor).
-- [ ] **P5 Cierre del hito.** Revisión independiente de seguridad, prueba en Compose con la semilla contra las cifras del prototipo, ADR 0016 y 0017, `CLAUDE.md`, y las 3 sugerencias de la segunda revisión nativa sobre la prueba de carga del panel. Ruta: inline o delegada.
+- [x] **P5 Cierre del hito.** Revisión independiente de seguridad, prueba en Compose con la semilla contra las cifras del prototipo, ADR 0016 y 0017, `CLAUDE.md`, y las 3 sugerencias de la segunda revisión nativa sobre la prueba de carga del panel. Ruta: inline o delegada.
   - Revisión de seguridad (hecha sobre `c8f0cc1..5db34d3`, solo lectura): sin hallazgos altos ni medios. Dos bajos:
     - (1) Un `:id` mal formado en `/cierre` responde 404 desde el pipe, después de que Multer escribió el archivo en `.entrantes`, y el `finally` del servicio nunca corre. Repetirlo llena el disco hasta el barrido del arranque. Se corrige limpiando los temporales en el interceptor cuando termina la petición, sea cual sea el resultado (también en sesiones), con su prueba.
     - (2) El alcance se comprueba después de que Multer guarda hasta 20 MB. El archivo se borra, así que es solo carga transitoria y se acepta con unos 10 usuarios; queda anotado en el ADR 0016.
@@ -160,7 +160,22 @@ Fuera de alcance: mallas (RF-06), exportación (RF-10), catálogos reales, usuar
   - La prueba «en vuelo» ya no hace clic dentro de contenido `inert`, porque jsdom no lo implementa. Ahora comprueba que `inert` y `aria-busy` están puestos mientras carga y que se quitan al llegar los datos.
   - `mesDelMaximo` toma el número de mes de la fila, sin suponer una serie completa ni ordenada, y tiene prueba unitaria.
   - Evidencia: Vitest 147; lint y tipos en 0.
+- P5:
+  - `fa7e4b6` (P4c) y `b1dadc2`.
+  - **Limpieza de temporales.** El interceptor borra los temporales de subida al terminar cada petición, salga bien o mal.
+    - El hallazgo bajo de la revisión de seguridad no se reprodujo: la versión instalada de `@nestjs/platform-express` ya borra el temporal cuando falla el pipe.
+    - La limpieza queda como defensa en profundidad, con pruebas de `:id` mal formado en el cierre y de un campo inesperado en sesiones.
+  - **Prueba de carga del panel.** Trigger desactivado y reactivado dentro de una sola transacción, números deterministas, y el mejor de 3 tiempos después de un calentamiento.
+  - **Documentación.** ADR 0016 (cierre y anulación) y ADR 0017 (panel). En `CLAUDE.md` se anota que existen todos los módulos menos `mallas`.
+  - **Evidencia:**
+    - `npm test` con salida 0: 26 reglas, Jest 266 (24 suites) y Vitest 147; lint y tipos en 0.
+    - Compose de producción: `up -d --build --wait` correcto, 5 servicios bien, `migrar` con salida 0. Semilla aplicada dentro del contenedor (11 sesiones y 19 registros).
+    - Panel por Caddy, igual al prototipo: 14 ajustes, +9 respecto de 2025 (`totalAnioAnterior` 5), 9 abiertos, 2 vencidos, 4 cerrados, 13 vigentes, 3 en plazo, 10 de 10 carreras, los meses (Mar 3 … Nov 2), los sectores y las 5 últimas sesiones. El 2025 da 5 cerrados y `totalAnioAnterior` nulo.
+    - Carla cerró R-2026-017 desde la pantalla, en Chrome sin interfaz y por Caddy. La descarga de la evidencia de cierre es idéntica al original (`cmp`) y Paula (Calidad) ve el registro cerrado sin botones.
+    - Anulación por Caddy: Calidad recibe 403, un motivo corto 400, la anulación correcta 200 y repetirla 409. El panel se actualiza (7 abiertos, 5 cerrados, 2 anulados).
+    - `down -v` al terminar.
+  - Evaluación de riesgo del tramo `f99164e..b1dadc2`: medio, 175 líneas, `under_budget`. Queda pendiente y se suma al tramo siguiente.
 
 ## Próximo paso
 
-P5 cierre del hito.
+Hito 3 cerrado. Sigue el hito 4 (catálogos reales, usuarios, respaldo, Playwright y entrega), con plan aprobado el 26-11-2026.
