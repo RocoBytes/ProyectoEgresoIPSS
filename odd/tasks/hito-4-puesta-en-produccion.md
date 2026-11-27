@@ -76,7 +76,7 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
 
 - Rama `hito-4`, encima de `hito-3`. Un commit por tarea como mínimo.
 - Previsión: unas 2.000 líneas, en PR encadenados. La estrategia de cadena sigue pendiente del usuario y se decide antes del push. No se hace push.
-- Límite revisado por la revisión nativa: `9ca629e`.
+- Límite revisado por la revisión nativa: `26a621b`.
 
 ## Progreso y evidencia
 
@@ -273,6 +273,22 @@ Fuera de alcance: mallas (RF-06) y exportación (RF-10), que van como extras; da
     - Recalcula las sumas y restaura desde esa copia.
     - Exige código 1, sin revocación, y conteos, md5, permisos, triggers y el estado de `refresh_token` iguales a los de antes.
   - **Evidencia.** `sh -n` correcto. El padre volvió a correr `npm run test:respaldo` con resultado correcto: «código 1; mismos conteos, md5, permisos y triggers; refresh tokens sin tocar (1 vigentes)». Lint y tipos en 0.
+  - Commit `26a621b`.
+  - **Revisión nativa** de `9ca629e..26a621b` (C4b, C5 y C3e): riesgo alto, 479 líneas, 4 lentes, autorizada por la instrucción del usuario. Se aprobó y quedó reconocida. El límite revisado pasa a `26a621b`.
+  - **Advertencias aceptadas:**
+    - un segundo Ctrl-C mata la bajada de `scripts/e2e.mjs` (pasa a C4c);
+    - la prueba del volcado truncado no distingue la corrección de `\.` (pasa a C3f).
+  - **Advertencia aclarada.** La sospecha de que `publicar` nunca se dispara no aplica: `on: [push, pull_request]` incluye los push de etiquetas. El padre corrigió el comentario de permisos de `ci.yml`, que decía que ningún paso publicaba.
+- [x] C4c (commit de esta tarea):
+  - **Señales.** Desde la primera señal, las siguientes se ignoran.
+  - **Grupo de procesos.** `down`, `logs` y `ps` corren con `detached: true`, en su propio grupo de procesos, así que un SIGINT del terminal no los alcanza.
+  - **Qué se puede matar.** `hijoActual` solo apunta a `up`, a la siembra y a Playwright.
+  - El padre corrigió además el comentario de permisos de `ci.yml`.
+  - **Evidencia:**
+    - Un SIGINT doble salió con 130 y un SIGTERM doble con 143. Un SIGINT al grupo, al inicio y durante la bajada, salió con 130. En los tres casos quedaron 0 contenedores y 0 volúmenes.
+    - Lint en 0.
+    - El padre volvió a correr `npm run e2e`: 3 de 3, sin restos.
+- [ ] C3f: prueba que distinga la corrección del modo COPY (escritor de infraestructura).
 - [x] C4b (commit de esta tarea):
   - **Señales.** `scripts/e2e.mjs` pasa de `spawnSync` a `spawn`, para poder atender las señales. SIGINT y SIGTERM detienen el proceso hijo y bajan el proyecto con sus volúmenes, una sola vez gracias a una promesa compartida, y salen con 130 o 143.
   - **Fila del flujo 2.** El registro sale del JSON de la respuesta ya filtrada y la prueba espera el `href` exacto en la primera fila.

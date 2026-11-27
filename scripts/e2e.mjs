@@ -52,18 +52,21 @@ function paso(texto) {
 }
 
 // Se usa `spawn` asíncrono: con `spawnSync` el proceso no atiende señales mientras dura el `up --build`.
+// `hijoActual` apunta solo al trabajo interrumpible (up, siembra, Playwright). Los hijos de limpieza (`down`, `logs`, `ps`)
+// no se registran ahí y nacen `detached`, en su propio grupo de procesos: un Ctrl-C del terminal, que llega a todo el
+// grupo, no los alcanza y la bajada termina aunque el usuario insista.
 let hijoActual = null;
-function ejecutar(comando, args, { permitirFallo = false, heredar = false } = {}) {
+function ejecutar(comando, args, { permitirFallo = false, heredar = false, limpieza = false } = {}) {
   return new Promise((alResolver, alRechazar) => {
-    const hijo = spawn(comando, args, { cwd: raiz, env: entorno, stdio: heredar ? 'inherit' : 'pipe' });
-    hijoActual = hijo;
+    const hijo = spawn(comando, args, { cwd: raiz, env: entorno, stdio: heredar ? 'inherit' : 'pipe', detached: limpieza });
+    if (!limpieza) hijoActual = hijo;
     let stdout = '';
     let stderr = '';
     hijo.stdout?.on('data', (d) => (stdout += d));
     hijo.stderr?.on('data', (d) => (stderr += d));
     hijo.once('error', alRechazar);
     hijo.once('close', (status) => {
-      hijoActual = null;
+      if (hijoActual === hijo) hijoActual = null;
       if (status !== 0 && !permitirFallo) {
         if (!heredar) console.error(stdout, stderr);
         alRechazar(new Error(`Falló: ${comando} ${args.slice(0, 8).join(' ')} (código ${String(status)})`));
@@ -76,8 +79,8 @@ const compose = (args, opciones) => ejecutar('docker', ['compose', '-p', PROYECT
 
 async function restos() {
   const filtro = `label=com.docker.compose.project=${PROYECTO}`;
-  const contenedores = (await ejecutar('docker', ['ps', '-aq', '--filter', filtro], { permitirFallo: true })).stdout.split('\n').filter(Boolean);
-  const volumenes = (await ejecutar('docker', ['volume', 'ls', '-q', '--filter', filtro], { permitirFallo: true })).stdout.split('\n').filter(Boolean);
+  const contenedores = (await ejecutar('docker', ['ps', '-aq', '--filter', filtro], { permitirFallo: true, limpieza: true })).stdout.split('\n').filter(Boolean);
+  const volumenes = (await ejecutar('docker', ['volume', 'ls', '-q', '--filter', filtro], { permitirFallo: true, limpieza: true })).stdout.split('\n').filter(Boolean);
   return { contenedores: contenedores.length, volumenes: volumenes.length };
 }
 
@@ -87,7 +90,7 @@ function bajar() {
   bajada ??= (async () => {
     paso(`Bajando ${PROYECTO} con sus volúmenes`);
     try {
-      const limpieza = await compose(['down', '--volumes', '--remove-orphans'], { permitirFallo: true });
+      const limpieza = await compose(['down', '--volumes', '--remove-orphans'], { permitirFallo: true, limpieza: true });
       if (limpieza.status !== 0) console.error(limpieza.stderr);
       const { contenedores, volumenes } = await restos();
       console.log(`   contenedores restantes: ${String(contenedores)}, volúmenes restantes: ${String(volumenes)}`);
@@ -102,14 +105,18 @@ function bajar() {
 async function mostrarRegistros() {
   try {
     console.error(`\n== Últimas líneas de api y proxy`);
-    console.error((await compose(['logs', '--no-color', '--tail', '40', 'api', 'proxy'], { permitirFallo: true })).stdout);
+    console.error((await compose(['logs', '--no-color', '--tail', '40', 'api', 'proxy'], { permitirFallo: true, limpieza: true })).stdout);
   } catch (error) {
     console.error(`No se pudieron leer los registros: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
+// Solo la primera señal actúa: las siguientes se ignoran para que un segundo Ctrl-C no interrumpa la bajada.
+let interrumpido = false;
 for (const [senal, numero] of [['SIGINT', 2], ['SIGTERM', 15]]) {
   process.on(senal, () => {
+    if (interrumpido) return;
+    interrumpido = true;
     console.error(`\nRecibí ${senal}: interrumpo y bajo ${PROYECTO}`);
     hijoActual?.kill('SIGTERM');
     void bajar().finally(() => process.exit(128 + numero));

@@ -3,7 +3,8 @@ name: CI
 # Nunca `pull_request_target`: ese disparador ejecuta código de una rama ajena con los secretos del repositorio.
 on: [push, pull_request]
 
-# Mínimo privilegio: el flujo solo lee el código. Ningún paso publica ni escribe.
+# Mínimo privilegio: por defecto el flujo solo lee el código. El único que escribe es `publicar`, que pide
+# `packages: write` para sí mismo y corre solo con etiquetas `v*` (un push de etiqueta también dispara `push`).
 permissions:
   contents: read
 
