@@ -9,6 +9,7 @@ const variantes = cva(
       variante: {
         primario: 'border-azul bg-azul text-white hover:bg-azul-osc',
         secundario: 'border-borde-fuerte bg-superficie text-navy hover:border-navy hover:bg-superficie-2',
+        fantasma: 'border-transparent bg-transparent text-texto-2 hover:bg-neutro-fondo hover:text-texto',
         peligro: 'border-error bg-error text-white hover:opacity-90',
         enlace: 'min-h-0 border-transparent bg-transparent px-0 text-azul-osc underline hover:text-navy',
         icono: 'size-9 min-h-0 border-borde bg-superficie p-0 text-navy hover:border-navy',

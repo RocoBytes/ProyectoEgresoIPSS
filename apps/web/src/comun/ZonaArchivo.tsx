@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { cn } from '../comun/ui/cn';
+import { cn } from './ui/cn';
 
 interface Props {
   id: string;

@@ -51,9 +51,9 @@ Fuera de alcance: mallas (RF-06), exportación (RF-10), catálogos reales, usuar
 
   Ruta: delegada (escritor de la API; P3 para la web).
 - [x] **P2 API del panel.** Módulo `reportes` con indicadores, dona, anillos, series por mes y por año, canal, nivel, sector o carrera y últimas 5 sesiones. Ruta: delegada (mismo escritor).
-- [ ] **P3 Web: cerrar y anular.** Botones en el detalle, `DialogoCerrar` y `DialogoAnular` con textos y validaciones del prototipo; la zona de archivo pasa a `comun/`. Ruta: delegada (escritor de la web).
+- [x] **P3 Web: cerrar y anular.** Botones en el detalle, `DialogoCerrar` y `DialogoAnular` con textos y validaciones del prototipo; la zona de archivo pasa a `comun/`. Ruta: delegada (escritor de la web).
 - [ ] **P4 Web: panel.** Filtros en la URL, indicadores, gráficos, estados vacíos, últimas sesiones y clic hacia el listado. Ruta: delegada (mismo escritor).
-- [ ] **P5 Cierre del hito.** Revisión independiente de seguridad, prueba en Compose con la semilla contra las cifras del prototipo, ADR 0016 y 0017, `CLAUDE.md`. Ruta: inline o delegada.
+- [ ] **P5 Cierre del hito.** Revisión independiente de seguridad, prueba en Compose con la semilla contra las cifras del prototipo, ADR 0016 y 0017, `CLAUDE.md`, y las 3 sugerencias de la segunda revisión nativa sobre la prueba de carga del panel. Ruta: inline o delegada.
 
 ## Criterios de aceptación
 
@@ -77,7 +77,7 @@ Fuera de alcance: mallas (RF-06), exportación (RF-10), catálogos reales, usuar
 
 - Rama `hito-3`, encima de `hito-2`. Un commit por tarea como mínimo.
 - Previsión: unas 2.500 líneas, en PR encadenados. La estrategia de cadena sigue pendiente del usuario y se decide antes del push. No se hace push.
-- Último límite revisado por la revisión nativa: `36bdd51`.
+- Último límite revisado por la revisión nativa: `b31cd4f`.
 
 ## Progreso y evidencia
 
@@ -103,7 +103,21 @@ Fuera de alcance: mallas (RF-06), exportación (RF-10), catálogos reales, usuar
     - Con la base de desarrollo sembrada y hoy = 26-11-2026 el panel coincide con el prototipo, descontando la sesión «Reunión de prueba en vivo» que quedó de la prueba en vivo del hito 2 (1 registro abierto, comité sectorial, asignatura, Tecnologías, noviembre).
     - Con eso quedan 14 ajustes, 9 abiertos, 2 vencidos, 4 cerrados, 13 vigentes, 3 en plazo, 10 de 10 carreras y `totalAnioAnterior` 5. El 2025 da 5 cerrados, 5 en plazo y `totalAnioAnterior` nulo.
   - Diferencia conocida con el prototipo: canales y sectores salen en orden alfabético («Otro» al final), igual que en `GET /api/catalogos`. El prototipo usa un orden fijo. Ya estaba anotado como pendiente menor.
+  - Commit `b31cd4f`.
+  - Revisión nativa del tramo `36bdd51..b31cd4f` (P1b y P2): riesgo medio, 629 líneas, `slice_budget_reached`. El usuario la autorizó y se aprobó con el lente de confiabilidad, sin bloqueos, y quedó reconocida. El nuevo límite revisado es `b31cd4f`.
+  - Quedaron 3 sugerencias sobre la prueba de carga de `reportes.e2e-spec.ts`, que van a P5:
+    - desactiva el trigger del correlativo en la base compartida (hoy Jest corre en serie);
+    - arma año y correlativo con `Math.random`;
+    - mide con un umbral rígido de 1.000 ms.
+- P3 (commit de esta tarea):
+  - En el detalle aparecen «Anular», «Editar» y «Cerrar con evidencia», en el orden del prototipo.
+  - `DialogoCerrar` y `DialogoAnular` llevan los textos, validaciones y toasts del prototipo. Un 400 se muestra campo por campo; un 403, 404 o 409 aparece como aviso dentro del diálogo; un 413 vacío se traduce al mensaje de 20 MB.
+  - Al terminar se invalidan las consultas `['registros']` y `['reportes']`.
+  - `ZonaArchivo`, `FilaArchivo` y la validación de archivos pasan a `comun/`. `Boton` suma la variante `fantasma`.
+  - Nueva sesión borra el aviso de 100 MB al cambiar el acta o las fotos (sugerencia de la primera revisión).
+  - El historial y la trazabilidad de cerrados y anulados ya estaban completos; no se tocaron.
+  - Evidencia: `npm test` con 26 reglas, Jest 264 y Vitest 116 (22 nuevas); lint y tipos en 0. El padre volvió a correr `npm test` con el mismo resultado.
 
 ## Próximo paso
 
-P3 y P4 (escritor de la web).
+P4 (escritor de la web).

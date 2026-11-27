@@ -5,12 +5,15 @@ import type { DetalleRegistro, EvidenciaResumen } from '@ipss/shared';
 import { ErrorApi } from '../api/cliente';
 import { Aviso } from '../comun/Aviso';
 import { fechaTexto, hoyEnSantiago, marcaTexto } from '../comun/fecha-texto';
+import { Icono } from '../comun/Icono';
 import { etiquetaNivel } from '../comun/niveles';
 import { tamanoTexto } from '../comun/tamano';
 import { Boton } from '../comun/ui/Boton';
 import { cn } from '../comun/ui/cn';
 import { Folio, Pill, Tarjeta } from '../comun/ui/Marcas';
 import { obtenerDetalle } from './api';
+import { DialogoAnular } from './DialogoAnular';
+import { DialogoCerrar } from './DialogoCerrar';
 import { DialogoEditar } from './DialogoEditar';
 import { pasosTrazabilidad, textoHistorial, TITULO_HISTORIAL } from './trazabilidad';
 
@@ -45,7 +48,10 @@ const CLASE_PASO: Record<string, string> = {
 };
 
 function Contenido({ r }: { r: DetalleRegistro }) {
-  const [editando, setEditando] = useState(false);
+  const [dialogo, setDialogo] = useState<'editar' | 'cerrar' | 'anular' | null>(null);
+  const cerrarDialogo = () => {
+    setDialogo(null);
+  };
   const abierto = r.estado === 'ABIERTO';
   const historial = [...r.historial].sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
   const sello =
@@ -67,9 +73,19 @@ function Contenido({ r }: { r: DetalleRegistro }) {
         <span className="rounded-xs border border-current px-3 py-1 text-[11.5px] font-bold tracking-widest text-azul-osc uppercase">{sello}</span>
         {r.vencido && <Pill tono="alerta">Vencido</Pill>}
         {abierto && r.permisos.puedeModificar && (
-          <Boton variante="secundario" className="ml-auto" onClick={() => setEditando(true)}>
-            Editar
-          </Boton>
+          <div className="ml-auto flex flex-wrap gap-2">
+            <Boton variante="fantasma" onClick={() => setDialogo('anular')}>
+              <Icono nombre="anular" />
+              Anular
+            </Boton>
+            <Boton variante="secundario" onClick={() => setDialogo('editar')}>
+              Editar
+            </Boton>
+            <Boton onClick={() => setDialogo('cerrar')}>
+              <Icono nombre="check" />
+              Cerrar con evidencia
+            </Boton>
+          </div>
         )}
       </div>
       {abierto && !r.permisos.puedeModificar && (
@@ -178,13 +194,9 @@ function Contenido({ r }: { r: DetalleRegistro }) {
           </Tarjeta>
         </div>
       </div>
-      <DialogoEditar
-        registro={r}
-        abierto={editando}
-        alCerrar={() => {
-          setEditando(false);
-        }}
-      />
+      <DialogoEditar registro={r} abierto={dialogo === 'editar'} alCerrar={cerrarDialogo} />
+      <DialogoCerrar registro={r} abierto={dialogo === 'cerrar'} alCerrar={cerrarDialogo} />
+      <DialogoAnular registro={r} abierto={dialogo === 'anular'} alCerrar={cerrarDialogo} />
     </section>
   );
 }
